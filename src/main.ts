@@ -31,6 +31,7 @@ import {
   setVaporMouse,
   setSpawnBoundary,
   repelFrom,
+  vortexToward,
   type VaporSystem,
 } from './vapor/particles'
 
@@ -136,7 +137,7 @@ async function main(): Promise<void> {
   }
   transition = createTransitionSystem(charPositions, inkLayout.bodyFont)
 
-  console.log(`[vapor] palette: ${charPalette.length} chars, particles: ${vapor.particles.length}`)
+  console.log(`[layout] cols: ${inkLayout.columns.length}, lines: ${inkLayout.body.lines.length}, chars: ${charPositions.length}`)
 
   // Input: click → ripple, drag → move boundary
   canvas.addEventListener('mousedown', (e: MouseEvent) => {
@@ -272,6 +273,11 @@ async function main(): Promise<void> {
       boostField(vapor.noise, 1)
     }
 
+    // Apply vortex when mouse is held (not dragging boundary)
+    if (input.mouse.down && !drag.active) {
+      vortexToward(vapor, input.mouse.x, input.mouse.y, 250, 800, 1200)
+    }
+
     // Update mouse position for vapor
     setVaporMouse(
       vapor,
@@ -327,6 +333,9 @@ async function main(): Promise<void> {
   const isTouchDevice = 'ontouchstart' in window
 
   if (!isTouchDevice) {
+    // Track click pulse state
+    let lastClickTime = 0
+
     addLayer(renderer, (ctx, time, _dt) => {
       if (fadeInAlpha < 0.3) return
       const mx = input.mouse.x
@@ -334,18 +343,24 @@ async function main(): Promise<void> {
 
       const isOverBoundary = isCursorNearBoundary(mx, my, wave, ripples, time, 50)
       const isDragging = drag.active
-      const isClicked = input.mouse.clicked
+
+      if (input.mouse.clicked) lastClickTime = time
 
       // Responsive base radius
       const vw = window.innerWidth
       const baseRadius = vw < 900 ? 14 : vw < 1400 ? 18 : 22
       const segments = 60
 
-      // Circular wave displacement
+      // Circular wave displacement (same math as boundary, angular)
       const waveAmp = isOverBoundary ? 5 : 2.5
-      const waveFreq = 7 // wave peaks around the ring
+      const waveFreq = 7
       const waveSpeed = 2.0
-      const clickPulse = isClicked ? 10 : 0
+
+      // Click pulse: adds a visible expanding ring
+      const timeSinceClick = time - lastClickTime
+      const clickBurst = timeSinceClick < 0.6
+        ? Math.exp(-timeSinceClick * 6) * 8
+        : 0
 
       // Wavy ring
       ctx.globalAlpha = fadeInAlpha * (isDragging ? 0.85 : isOverBoundary ? 0.7 : 0.45)
@@ -360,7 +375,7 @@ async function main(): Promise<void> {
         const displacement =
           waveAmp * Math.sin(angle * waveFreq + time * waveSpeed) +
           waveAmp * 0.5 * Math.cos(angle * waveFreq * 1.5 - time * waveSpeed * 0.7) +
-          clickPulse * Math.exp(-((time * 4) % 1)) * Math.sin(angle * 3)
+          clickBurst * Math.sin(angle * 4 + time * 6)
 
         const r = baseRadius + displacement
         const x = mx + Math.cos(angle) * r
@@ -372,7 +387,18 @@ async function main(): Promise<void> {
       ctx.closePath()
       ctx.stroke()
 
-      // Outer glow ring (very subtle)
+      // Expanding ripple ring on click
+      if (clickBurst > 0.1) {
+        const rippleRadius = baseRadius + clickBurst * 4
+        ctx.globalAlpha = fadeInAlpha * clickBurst * 0.4
+        ctx.strokeStyle = rgbToString(theme.cursorColor)
+        ctx.lineWidth = 1.5
+        ctx.beginPath()
+        ctx.arc(mx, my, rippleRadius, 0, Math.PI * 2)
+        ctx.stroke()
+      }
+
+      // Outer glow ring
       ctx.globalAlpha = fadeInAlpha * 0.06
       ctx.strokeStyle = rgbToString(theme.cursorColor)
       ctx.lineWidth = 10
@@ -382,14 +408,14 @@ async function main(): Promise<void> {
 
       // Inner breathing dot
       const dotPulse = 1 + 0.3 * Math.sin(time * 2)
-      const dotRadius = 2 * dotPulse + (isClicked ? 4 : 0)
+      const dotRadius = 2 * dotPulse + clickBurst * 2
       ctx.globalAlpha = fadeInAlpha * 0.7
       ctx.fillStyle = rgbToString(theme.cursorColor)
       ctx.beginPath()
       ctx.arc(mx, my, dotRadius, 0, Math.PI * 2)
       ctx.fill()
 
-      // Drag mode: vertical arrows
+      // Drag arrows
       if (isDragging) {
         ctx.globalAlpha = fadeInAlpha * 0.5
         ctx.lineWidth = 1.5
@@ -408,12 +434,17 @@ async function main(): Promise<void> {
 
       ctx.globalAlpha = 1
     })
-  } else {
-    // Touch device — hide custom cursor
-    addLayer(renderer, (_ctx, _time, _dt) => {
-      // No cursor on touch devices
-    })
   }
+  // No cursor layer on touch devices — nothing rendered at all
+
+  // --- Sticky Footer (HTML, not canvas) ---
+  const footerEl = document.getElementById('sticky-footer') as HTMLDivElement
+  let lastInteraction = 0
+  function showFooter(): void { lastInteraction = timer.elapsed }
+  canvas.addEventListener('mousedown', showFooter)
+  canvas.addEventListener('touchstart', showFooter, { passive: true })
+
+  // Hide canvas footer layer — using HTML footer instead
 
   // Hide loading
   loadingEl.classList.add('hidden')
@@ -422,6 +453,11 @@ async function main(): Promise<void> {
   function frame(timestamp: number): void {
     tick(timer, timestamp)
     fadeInAlpha = clamp(fadeInAlpha + 0.02, 0, 1)
+
+    // Footer visibility
+    const timeSinceInteraction = timer.elapsed - lastInteraction
+    const footerVisible = timeSinceInteraction < 5
+    footerEl.classList.toggle('visible', footerVisible)
 
     render(renderer, timer.elapsed, timer.dt)
     resetFrameInput(input)

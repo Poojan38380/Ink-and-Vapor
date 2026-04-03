@@ -61,6 +61,18 @@ const BODY_TEXT =
   'documents. What if text could be alive? What if it could breathe, flow, scatter, ' +
   'and reform? What if the layout wasn\'t computed once at page load, but every frame, ' +
   'in response to every interaction?\n\n' +
+  'Typography has always been about the relationship between form and meaning. ' +
+  'The shapes of letters, the spaces between them, the rhythm of lines on a page — ' +
+  'these are not decorative choices. They are the physical manifestation of thought made visible. ' +
+  'When text flows around obstacles, it reveals the invisible architecture of reading itself.\n\n' +
+  'In print, this was never a problem. The compositor arranged the type by hand, ' +
+  'adjusting line breaks and spacing with human judgment. The page was a canvas, ' +
+  'literally — a flat surface waiting for intention. On the web, we inherited the opposite model: ' +
+  'a rigid pipeline that treats text as a black box, measuring nothing until it\'s too late.\n\n' +
+  'But measurement without the DOM changes everything. The browser\'s canvas API knows ' +
+  'exactly how wide every string will be before it\'s drawn. Cache those measurements once, ' +
+  'and layout becomes pure arithmetic — fast enough to run every frame, responsive enough ' +
+  'to react to every pixel of movement.\n\n' +
   'This is that question, answered on a canvas.'
 
 function getResponsiveConfig() {
@@ -74,8 +86,9 @@ function getResponsiveConfig() {
       marginXRatio: 0.05,
       headlineYRatio: 0.08,
       bodyTopExtra: 40,
+      bodyBottomRatio: 0.82,
       colGap: 12,
-      colThreshold: 9999, // always single column
+      colThreshold: 9999,
     }
   }
   if (w < 600) {
@@ -87,8 +100,9 @@ function getResponsiveConfig() {
       marginXRatio: 0.06,
       headlineYRatio: 0.07,
       bodyTopExtra: 45,
+      bodyBottomRatio: 0.84,
       colGap: 16,
-      colThreshold: 600,
+      colThreshold: 9999,
     }
   }
   if (w < 900) {
@@ -100,6 +114,7 @@ function getResponsiveConfig() {
       marginXRatio: 0.07,
       headlineYRatio: 0.12,
       bodyTopExtra: 100,
+      bodyBottomRatio: 0.88,
       colGap: 32,
       colThreshold: 900,
     }
@@ -112,6 +127,7 @@ function getResponsiveConfig() {
     marginXRatio: 0.08,
     headlineYRatio: 0.14,
     bodyTopExtra: 120,
+    bodyBottomRatio: 0.90,
     colGap: 44,
     colThreshold: 900,
   }
@@ -125,7 +141,7 @@ export function createInkLayout(): InkLayout {
   const marginX = w * cfg.marginXRatio
   const contentWidth = w - marginX * 2
   const bodyTop = cfg.headlineYRatio * h + cfg.bodyTopExtra
-  const bodyBottom = h - 30
+  const bodyBottom = h * cfg.bodyBottomRatio
 
   // Column count
   const colCount = contentWidth > cfg.colThreshold ? 2 : 1
@@ -167,7 +183,7 @@ export function createInkLayout(): InkLayout {
 
   const allLines: InkLine[] = []
   let y = bodyTop
-  const sharedCursor: LayoutCursor = { segmentIndex: 0, graphemeIndex: 0 }
+  let sharedCursor: LayoutCursor = { segmentIndex: 0, graphemeIndex: 0 }
   let currentCol = 0
 
   while (y < bodyBottom) {
@@ -186,6 +202,7 @@ export function createInkLayout(): InkLayout {
             width: line.width,
             colIndex: currentCol,
           })
+          sharedCursor = line.end
         }
       }
       y += cfg.bodyLineHeight
@@ -203,6 +220,7 @@ export function createInkLayout(): InkLayout {
       colIndex: currentCol,
     })
 
+    sharedCursor = line.end
     y += cfg.bodyLineHeight
 
     // Move to next column when filled
@@ -231,4 +249,5 @@ export function createInkLayout(): InkLayout {
   }
 }
 
+// Export for debugging
 export { HEADLINE_TEXT }

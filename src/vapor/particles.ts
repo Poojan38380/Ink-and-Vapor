@@ -183,6 +183,32 @@ export function repelFrom(
   }
 }
 
+/** Vortex: spiral particles toward a center point while orbiting */
+export function vortexToward(
+  sys: VaporSystem,
+  x: number,
+  y: number,
+  radius: number,
+  pullStrength: number,
+  spinStrength: number,
+): void {
+  for (const p of sys.particles) {
+    const dx = p.x - x
+    const dy = p.y - y
+    const distSq = dx * dx + dy * dy
+    const dist = Math.sqrt(distSq)
+    if (dist > 3 && dist < radius) {
+      const falloff = 1 - dist / radius
+      // Inward pull
+      p.vx -= (dx / dist) * pullStrength * falloff
+      p.vy -= (dy / dist) * pullStrength * falloff
+      // Tangential spin (perpendicular to radial)
+      p.vx += (dy / dist) * spinStrength * falloff
+      p.vy -= (dx / dist) * spinStrength * falloff
+    }
+  }
+}
+
 /** Set the spawn boundary Y */
 export function setSpawnBoundary(sys: VaporSystem, baseY: number): void {
   sys.spawnBaseY = baseY
