@@ -6,7 +6,13 @@ import { createInput, resetFrameInput } from './core/input'
 import { createTimer, tick } from './core/timer'
 import { waitForFonts } from './core/fonts'
 import { createInkLayout, BODY_FONT } from './ink/layout'
-import { drawHeadline, drawBodyLines, drawDropCap } from './ink/typesetter'
+import { drawHeadline, drawDropCap } from './ink/typesetter'
+import {
+  createTransitionSystem,
+  updateTransitions,
+  spawnDissolveParticles,
+  drawTransitionChars,
+} from './ink/crystallize'
 import { midnightGalaxy, type Theme } from './themes/registry'
 import { rgbToString, rgbLerp, lerpRGB } from './shared/colors'
 import { clamp } from './shared/utils'
@@ -53,6 +59,9 @@ async function main(): Promise<void> {
   let charPalette: VaporCharEntry[] = []
   let vapor: VaporSystem
 
+  // Transition system
+  let transition: ReturnType<typeof createTransitionSystem>
+
   window.addEventListener('resize', () => {
     inkLayout = createInkLayout()
     updateWaveBaseY(wave, renderer.height)
@@ -63,6 +72,26 @@ async function main(): Promise<void> {
   vapor = createVaporSystem(charPalette)
   setSpawnBoundary(vapor, wave.baseY)
   burstVapor(vapor, 800, renderer.width, renderer.height)
+
+  // Build transition system from ink layout characters
+  const charPositions: { char: string; x: number; y: number }[] = []
+  for (const line of inkLayout.body.lines) {
+    const ctx = document.createElement('canvas').getContext('2d')!
+    ctx.font = BODY_FONT
+    let cursorX = line.x
+    for (const ch of line.text) {
+      const w = ctx.measureText(ch).width
+      if (ch !== ' ') {
+        charPositions.push({
+          char: ch,
+          x: cursorX,
+          y: line.y + 20, // offset from drawBodyLines
+        })
+      }
+      cursorX += w
+    }
+  }
+  transition = createTransitionSystem(charPositions, BODY_FONT)
 
   console.log(`[vapor] palette: ${charPalette.length} chars, particles: ${vapor.particles.length}`)
 
@@ -120,11 +149,20 @@ async function main(): Promise<void> {
   })
 
   // --- Ink layer ---
-  addLayer(renderer, (ctx, time, _dt) => {
+  addLayer(renderer, (ctx, time, dt) => {
     const alpha = fadeInAlpha
     drawHeadline(ctx, inkLayout, time, theme.headlineColor, theme.headlineAccent, alpha)
-    drawBodyLines(ctx, inkLayout.body.lines, BODY_FONT, theme.inkColor, alpha * 0.85)
 
+    // Update transitions
+    updateTransitions(transition, wave, ripples, time, dt)
+
+    // Spawn dissolve particles from transitioning chars
+    spawnDissolveParticles(transition, vapor.particles, vapor.maxParticles, charPalette)
+
+    // Draw transition-aware characters (replaces static body text)
+    drawTransitionChars(ctx, transition, theme.inkColor, theme.boundaryGlow, alpha)
+
+    // Draw drop cap
     if (inkLayout.dropCap) {
       drawDropCap(
         ctx,
