@@ -5,7 +5,7 @@ import { createRenderer, render, addLayer, drawGlow } from './core/renderer'
 import { createInput, resetFrameInput } from './core/input'
 import { createTimer, tick } from './core/timer'
 import { waitForFonts } from './core/fonts'
-import { createInkLayout, BODY_FONT } from './ink/layout'
+import { createInkLayout } from './ink/layout'
 import { drawHeadline } from './ink/typesetter'
 import {
   createTransitionSystem,
@@ -69,6 +69,34 @@ async function main(): Promise<void> {
   window.addEventListener('resize', () => {
     inkLayout = createInkLayout()
     updateWaveBaseY(wave, renderer.height)
+
+    // Rebuild transition system from new layout
+    const newCharPositions: { char: string; x: number; y: number; font?: string }[] = []
+    if (inkLayout.dropCap) {
+      newCharPositions.push({
+        char: inkLayout.dropCap.char,
+        x: inkLayout.dropCap.x,
+        y: inkLayout.dropCap.y + 60,
+        font: inkLayout.dropCap.font,
+      })
+    }
+    for (const line of inkLayout.body.lines) {
+      const ctx = document.createElement('canvas').getContext('2d')!
+      ctx.font = inkLayout.bodyFont
+      let cursorX = line.x
+      for (const ch of line.text) {
+        const w = ctx.measureText(ch).width
+        if (ch !== ' ') {
+          newCharPositions.push({
+            char: ch,
+            x: cursorX,
+            y: line.y + 20,
+          })
+        }
+        cursorX += w
+      }
+    }
+    transition = createTransitionSystem(newCharPositions, inkLayout.bodyFont)
   })
 
   // Build character palette (requires fonts)
@@ -92,7 +120,7 @@ async function main(): Promise<void> {
 
   for (const line of inkLayout.body.lines) {
     const ctx = document.createElement('canvas').getContext('2d')!
-    ctx.font = BODY_FONT
+    ctx.font = inkLayout.bodyFont
     let cursorX = line.x
     for (const ch of line.text) {
       const w = ctx.measureText(ch).width
@@ -106,7 +134,7 @@ async function main(): Promise<void> {
       cursorX += w
     }
   }
-  transition = createTransitionSystem(charPositions, BODY_FONT)
+  transition = createTransitionSystem(charPositions, inkLayout.bodyFont)
 
   console.log(`[vapor] palette: ${charPalette.length} chars, particles: ${vapor.particles.length}`)
 
@@ -142,7 +170,32 @@ async function main(): Promise<void> {
     scrollTurbulence = Math.min(5, scrollTurbulence + Math.abs(e.deltaY) * 0.02)
   }, { passive: true })
 
-  // Click away from boundary → repulsion burst in vapor
+  // Touch drag support for boundary (mobile)
+  canvas.addEventListener('touchstart', (e: TouchEvent) => {
+    const t = e.touches[0]
+    const mx = t.clientX
+    const my = t.clientY
+    const hitBoundary = startDrag(
+      drag, wave,
+      mx, my,
+      50, // larger tolerance for touch
+      (x) => computeBoundaryY(wave, ripples, x, timer.elapsed),
+    )
+    if (!hitBoundary) {
+      ripples.push(createRipple(mx, timer.elapsed, 25))
+    }
+  }, { passive: true })
+
+  canvas.addEventListener('touchmove', (e: TouchEvent) => {
+    const t = e.touches[0]
+    updateDrag(drag, t.clientY, renderer.height)
+  }, { passive: true })
+
+  canvas.addEventListener('touchend', () => {
+    endDrag(drag)
+  })
+
+  // Double click → repulsion burst in vapor
   canvas.addEventListener('dblclick', (e: MouseEvent) => {
     const mx = e.clientX
     const my = e.clientY
@@ -267,102 +320,100 @@ async function main(): Promise<void> {
     drawBoundary(ctx, wave, ripples, time, theme.boundaryColor, theme.boundaryGlow)
   })
 
-  // --- Custom cursor ---
-  addLayer(renderer, (ctx, _time, _dt) => {
-    const alpha = fadeInAlpha
-    const mx = input.mouse.x
-    const my = input.mouse.y
+  // --- Custom cursor: algorithmic circular wave ---
+  // Hidden on touch devices. On desktop, a living ring that
+  // breathes like the boundary wave and pulses on click.
 
-    const isOverBoundary = isCursorNearBoundary(mx, my, wave, ripples, timer.elapsed, 50)
-    const isOverVapor = my < wave.baseY - 40
-    const isDragging = drag.active
+  const isTouchDevice = 'ontouchstart' in window
 
-    let ringRadius: number
-    let ringAlpha: number
-    let lineWidth: number
+  if (!isTouchDevice) {
+    addLayer(renderer, (ctx, time, _dt) => {
+      if (fadeInAlpha < 0.3) return
+      const mx = input.mouse.x
+      const my = input.mouse.y
 
-    if (isDragging) {
-      // Dragging boundary — wide ring with vertical arrows
-      ringRadius = 28
-      ringAlpha = 0.9
-      lineWidth = 3
-    } else if (isOverBoundary) {
-      // Near boundary — medium ring, ready to grab
-      ringRadius = 24
-      ringAlpha = 0.85
-      lineWidth = 2.5
-    } else if (isOverVapor) {
-      // Over vapor — larger ring with inner crosshair
-      ringRadius = 20
-      ringAlpha = 0.6
-      lineWidth = 1.5
-    } else {
-      // Default — small, subtle
-      ringRadius = 14
-      ringAlpha = 0.45
-      lineWidth = 1.2
-    }
+      const isOverBoundary = isCursorNearBoundary(mx, my, wave, ripples, time, 50)
+      const isDragging = drag.active
+      const isClicked = input.mouse.clicked
 
-    // Outer ring
-    ctx.globalAlpha = alpha * ringAlpha
-    ctx.strokeStyle = rgbToString(theme.cursorColor)
-    ctx.lineWidth = lineWidth
-    ctx.beginPath()
-    ctx.arc(mx, my, ringRadius, 0, Math.PI * 2)
-    ctx.stroke()
+      // Responsive base radius
+      const vw = window.innerWidth
+      const baseRadius = vw < 900 ? 14 : vw < 1400 ? 18 : 22
+      const segments = 60
 
-    // Inner dot
-    ctx.globalAlpha = alpha * 0.85
-    ctx.fillStyle = rgbToString(theme.cursorColor)
-    ctx.beginPath()
-    ctx.arc(mx, my, 2.5, 0, Math.PI * 2)
-    ctx.fill()
+      // Circular wave displacement
+      const waveAmp = isOverBoundary ? 5 : 2.5
+      const waveFreq = 7 // wave peaks around the ring
+      const waveSpeed = 2.0
+      const clickPulse = isClicked ? 10 : 0
 
-    // Context-specific extras
-    if (isDragging) {
-      // Vertical arrows indicating drag direction
-      ctx.globalAlpha = alpha * 0.6
-      ctx.lineWidth = 2
-      const arrowSize = 6
-      // Up arrow
+      // Wavy ring
+      ctx.globalAlpha = fadeInAlpha * (isDragging ? 0.85 : isOverBoundary ? 0.7 : 0.45)
+      ctx.strokeStyle = rgbToString(theme.cursorColor)
+      ctx.lineWidth = isDragging ? 2.5 : isOverBoundary ? 2 : 1.2
+      ctx.lineJoin = 'round'
+      ctx.lineCap = 'round'
+
       ctx.beginPath()
-      ctx.moveTo(mx, my - ringRadius - 8)
-      ctx.lineTo(mx - arrowSize, my - ringRadius - 8 + arrowSize)
-      ctx.moveTo(mx, my - ringRadius - 8)
-      ctx.lineTo(mx + arrowSize, my - ringRadius - 8 + arrowSize)
-      ctx.stroke()
-      // Down arrow
-      ctx.beginPath()
-      ctx.moveTo(mx, my + ringRadius + 8)
-      ctx.lineTo(mx - arrowSize, my + ringRadius + 8 - arrowSize)
-      ctx.moveTo(mx, my + ringRadius + 8)
-      ctx.lineTo(mx + arrowSize, my + ringRadius + 8 - arrowSize)
-      ctx.stroke()
-    } else if (isOverBoundary) {
-      // Grab handle arcs at top and bottom
-      ctx.globalAlpha = alpha * 0.5
-      ctx.lineWidth = 1.5
-      ctx.beginPath()
-      ctx.arc(mx, my, ringRadius + 4, -0.4, 0.4)
-      ctx.stroke()
-      ctx.beginPath()
-      ctx.arc(mx, my, ringRadius + 4, Math.PI - 0.4, Math.PI + 0.4)
-      ctx.stroke()
-    } else if (isOverVapor) {
-      // Small crosshair
-      ctx.globalAlpha = alpha * 0.3
-      ctx.lineWidth = 0.8
-      const ch = 5
-      ctx.beginPath()
-      ctx.moveTo(mx - ch, my)
-      ctx.lineTo(mx + ch, my)
-      ctx.moveTo(mx, my - ch)
-      ctx.lineTo(mx, my + ch)
-      ctx.stroke()
-    }
+      for (let i = 0; i <= segments; i++) {
+        const angle = (i / segments) * Math.PI * 2
+        const displacement =
+          waveAmp * Math.sin(angle * waveFreq + time * waveSpeed) +
+          waveAmp * 0.5 * Math.cos(angle * waveFreq * 1.5 - time * waveSpeed * 0.7) +
+          clickPulse * Math.exp(-((time * 4) % 1)) * Math.sin(angle * 3)
 
-    ctx.globalAlpha = 1
-  })
+        const r = baseRadius + displacement
+        const x = mx + Math.cos(angle) * r
+        const y = my + Math.sin(angle) * r
+
+        if (i === 0) ctx.moveTo(x, y)
+        else ctx.lineTo(x, y)
+      }
+      ctx.closePath()
+      ctx.stroke()
+
+      // Outer glow ring (very subtle)
+      ctx.globalAlpha = fadeInAlpha * 0.06
+      ctx.strokeStyle = rgbToString(theme.cursorColor)
+      ctx.lineWidth = 10
+      ctx.beginPath()
+      ctx.arc(mx, my, baseRadius, 0, Math.PI * 2)
+      ctx.stroke()
+
+      // Inner breathing dot
+      const dotPulse = 1 + 0.3 * Math.sin(time * 2)
+      const dotRadius = 2 * dotPulse + (isClicked ? 4 : 0)
+      ctx.globalAlpha = fadeInAlpha * 0.7
+      ctx.fillStyle = rgbToString(theme.cursorColor)
+      ctx.beginPath()
+      ctx.arc(mx, my, dotRadius, 0, Math.PI * 2)
+      ctx.fill()
+
+      // Drag mode: vertical arrows
+      if (isDragging) {
+        ctx.globalAlpha = fadeInAlpha * 0.5
+        ctx.lineWidth = 1.5
+        const arrowSize = 5
+        ctx.beginPath()
+        ctx.moveTo(mx, my - baseRadius - 8)
+        ctx.lineTo(mx - arrowSize, my - baseRadius - 8 + arrowSize)
+        ctx.moveTo(mx, my - baseRadius - 8)
+        ctx.lineTo(mx + arrowSize, my - baseRadius - 8 + arrowSize)
+        ctx.moveTo(mx, my + baseRadius + 8)
+        ctx.lineTo(mx - arrowSize, my + baseRadius + 8 - arrowSize)
+        ctx.moveTo(mx, my + baseRadius + 8)
+        ctx.lineTo(mx + arrowSize, my + baseRadius + 8 - arrowSize)
+        ctx.stroke()
+      }
+
+      ctx.globalAlpha = 1
+    })
+  } else {
+    // Touch device — hide custom cursor
+    addLayer(renderer, (_ctx, _time, _dt) => {
+      // No cursor on touch devices
+    })
+  }
 
   // Hide loading
   loadingEl.classList.add('hidden')

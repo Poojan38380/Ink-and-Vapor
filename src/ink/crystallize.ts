@@ -64,7 +64,7 @@ export function createTransitionSystem(
     font,
     dissolveSpeed: 2.2,
     crystallizeSpeed: 2.8,
-    dissolveParticleCount: 1,
+    dissolveParticleCount: 0,
   }
 }
 
@@ -158,10 +158,10 @@ export function spawnDissolveParticles(
     for (let i = 0; i < count && particles.length < maxParticles; i++) {
       const entry = palette[Math.floor(Math.random() * palette.length)]
       particles.push({
-        x: ch.x + (Math.random() - 0.5) * 15,
-        y: ch.y + (Math.random() - 0.5) * 10,
-        vx: (Math.random() - 0.5) * 40,
-        vy: -40 - Math.random() * 60,
+        x: ch.x + (Math.random() - 0.5) * 8,
+        y: ch.y + (Math.random() - 0.5) * 5,
+        vx: (Math.random() - 0.5) * 15,
+        vy: -20 - Math.random() * 25,
         life: 0.5 + Math.random() * 0.5,
         maxLife: 1.5 + Math.random() * 2,
         entry,
@@ -200,9 +200,8 @@ export function drawTransitionChars(
     ctx.globalAlpha = colorAlpha
     ctx.fillStyle = rgbToString(color, 1)
 
-    // Use per-character font if available (drop cap), otherwise default
-    const fontSize = 17 * ch.scale
-    ctx.font = ch.font ?? `${fontSize}px Georgia`
+    // Use per-character font if available (drop cap), otherwise system default
+    ctx.font = ch.font ?? sys.font
 
     if (ch.inkness >= 0.99) {
       // Solid ink — crisp, at exact home position

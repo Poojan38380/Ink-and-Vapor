@@ -48,7 +48,7 @@ export function createVaporSystem(palette: VaporCharEntry[]): VaporSystem {
       timeSpeed: 0.08,
       zOffset: 0,
     },
-    maxParticles: 1500,
+    maxParticles: 800,
     spawnRate: 0, // No ambient particles — vapor comes from dissolving chars only
     spawnBaseY: 0,
     attractionStrength: 800,
@@ -77,8 +77,8 @@ function spawnParticle(
   return {
     x,
     y,
-    vx: (Math.random() - 0.5) * 15,
-    vy: -30 - Math.random() * 40, // drift upward
+    vx: (Math.random() - 0.5) * 5,
+    vy: -15 - Math.random() * 20, // drift upward
     life: 1,
     maxLife,
     entry,
@@ -110,13 +110,13 @@ export function updateVapor(
   for (let i = sys.particles.length - 1; i >= 0; i--) {
     const p = sys.particles[i]
 
-    // Flow field force
+    // Flow field force — gentler for less chaotic drift
     const [fx, fy] = flowAt(sys.noise, p.x, p.y)
-    p.vx += fx * 250 * dt
-    p.vy += fy * 250 * dt
+    p.vx += fx * 80 * dt
+    p.vy += fy * 80 * dt
 
-    // Upward drift (vapor rises)
-    p.vy -= 8 * dt
+    // Upward drift (vapor rises slowly)
+    p.vy -= 4 * dt
 
     // Mouse attraction
     if (sys.mouseActive) {

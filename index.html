@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Ink & Vapor — Dual-Mode Text Alchemy</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -35,7 +35,13 @@
       position: fixed;
       top: 0;
       left: 0;
-      cursor: none;
+    }
+
+    /* Desktop only: hide default cursor for custom wave ring */
+    @media (hover: hover) and (pointer: fine) {
+      canvas {
+        cursor: none;
+      }
     }
 
     #loading {

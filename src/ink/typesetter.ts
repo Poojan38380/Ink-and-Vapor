@@ -62,15 +62,18 @@ export function drawHeadline(
   )
 
   ctx.fillStyle = gradient
-  ctx.font = 'bold 72px "Playfair Display"'
+  ctx.font = layout.headlineFont
   ctx.textAlign = 'left'
   ctx.textBaseline = 'alphabetic'
 
-  // Subtle text shadow
-  ctx.shadowColor = rgbToString(inkColor, 0.15)
-  ctx.shadowBlur = 8
+  // Subtle text shadow — scaled down on mobile
+  const vw = window.innerWidth
+  const blur = vw < 600 ? 3 : 8
+  const offsetY = vw < 600 ? 1 : 2
+  ctx.shadowColor = rgbToString(inkColor, vw < 600 ? 0.08 : 0.15)
+  ctx.shadowBlur = blur
   ctx.shadowOffsetX = 0
-  ctx.shadowOffsetY = 2
+  ctx.shadowOffsetY = offsetY
 
   ctx.fillText(layout.headlineLine, x, y)
 

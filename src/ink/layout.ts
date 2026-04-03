@@ -1,4 +1,4 @@
-// Ink & Vapor — Ink layer: multi-column text layout via pretext
+// Ink & Vapor — Ink layer: multi-column responsive text layout via pretext
 
 import {
   prepareWithSegments,
@@ -17,7 +17,6 @@ export interface InkLine {
 export interface InkBlock {
   lines: InkLine[]
   totalHeight: number
-  /** Which column range this block occupies */
   colStart: number
   colEnd: number
 }
@@ -27,6 +26,7 @@ export interface InkLayout {
   headlineX: number
   headlineY: number
   headlineWidth: number
+  headlineFont: string
   body: InkBlock
   dropCap: {
     char: string
@@ -34,13 +34,13 @@ export interface InkLayout {
     y: number
     font: string
   } | null
-  /** Column boundaries in pixel space */
   columns: { left: number; right: number }[]
+  /** The actual font used for body text (for char extraction) */
+  bodyFont: string
+  bodyLineHeight: number
 }
 
 const HEADLINE_TEXT = 'INK & VAPOR'
-const HEADLINE_FONT = 'bold 72px "Playfair Display"'
-
 const BODY_TEXT =
   'The boundary between permanence and impermanence is a line you draw yourself. ' +
   'Below it, text settles like ink on paper — heavy, deliberate, carved into the page ' +
@@ -63,107 +63,138 @@ const BODY_TEXT =
   'in response to every interaction?\n\n' +
   'This is that question, answered on a canvas.'
 
-const BODY_FONT = '17px Georgia'
-const BODY_LINE_HEIGHT = 26
-const DROP_CAP_FONT = 'bold 68px "Playfair Display"'
-const DROP_CAP_LINES = 3
-const DROP_CAP_SIZE = DROP_CAP_LINES * BODY_LINE_HEIGHT
-const COLUMN_GAP = 44
-const MARGIN_X_RATIO = 0.08
-const HEADLINE_Y_RATIO = 0.14
+function getResponsiveConfig() {
+  const w = window.innerWidth
+  if (w < 380) {
+    return {
+      headline: 'bold 18px "Playfair Display"',
+      body: '12px Georgia',
+      bodyLineHeight: 19,
+      dropCap: 'bold 22px "Playfair Display"',
+      marginXRatio: 0.05,
+      headlineYRatio: 0.08,
+      bodyTopExtra: 40,
+      colGap: 12,
+      colThreshold: 9999, // always single column
+    }
+  }
+  if (w < 600) {
+    return {
+      headline: 'bold 22px "Playfair Display"',
+      body: '13px Georgia',
+      bodyLineHeight: 20,
+      dropCap: 'bold 26px "Playfair Display"',
+      marginXRatio: 0.06,
+      headlineYRatio: 0.07,
+      bodyTopExtra: 45,
+      colGap: 16,
+      colThreshold: 600,
+    }
+  }
+  if (w < 900) {
+    return {
+      headline: 'bold 52px "Playfair Display"',
+      body: '16px Georgia',
+      bodyLineHeight: 24,
+      dropCap: 'bold 50px "Playfair Display"',
+      marginXRatio: 0.07,
+      headlineYRatio: 0.12,
+      bodyTopExtra: 100,
+      colGap: 32,
+      colThreshold: 900,
+    }
+  }
+  return {
+    headline: 'bold 72px "Playfair Display"',
+    body: '17px Georgia',
+    bodyLineHeight: 26,
+    dropCap: 'bold 68px "Playfair Display"',
+    marginXRatio: 0.08,
+    headlineYRatio: 0.14,
+    bodyTopExtra: 120,
+    colGap: 44,
+    colThreshold: 900,
+  }
+}
 
 export function createInkLayout(): InkLayout {
   const w = window.innerWidth
   const h = window.innerHeight
-  const marginX = w * MARGIN_X_RATIO
+  const cfg = getResponsiveConfig()
+
+  const marginX = w * cfg.marginXRatio
   const contentWidth = w - marginX * 2
-  const bodyTop = HEADLINE_Y_RATIO * h + 120
+  const bodyTop = cfg.headlineYRatio * h + cfg.bodyTopExtra
   const bodyBottom = h - 30
 
-  // --- Headline ---
-  const ctx = document.createElement('canvas').getContext('2d')!
-  ctx.font = HEADLINE_FONT
-  const headlineWidth = ctx.measureText(HEADLINE_TEXT).width
-  const headlineX = (w - headlineWidth) / 2
-  const headlineY = h * HEADLINE_Y_RATIO
-
-  // --- Drop cap ---
-  const firstChar = BODY_TEXT[0]
-  ctx.font = DROP_CAP_FONT
-  const dropCapW = ctx.measureText(firstChar).width
-  const dropCap = {
-    char: firstChar,
-    x: marginX - 2,
-    y: bodyTop,
-    font: DROP_CAP_FONT,
-  }
-  const dropCapRight = marginX + dropCapW + 8
-
-  // --- Multi-column body layout ---
-  const colCount = contentWidth > 900 ? 2 : 1
-  const totalGutter = colCount > 1 ? COLUMN_GAP : 0
+  // Column count
+  const colCount = contentWidth > cfg.colThreshold ? 2 : 1
+  const totalGutter = colCount > 1 ? cfg.colGap : 0
   const totalContent = contentWidth - totalGutter
   const colWidth = totalContent / colCount
 
   const columns: { left: number; right: number }[] = []
   for (let i = 0; i < colCount; i++) {
     columns.push({
-      left: marginX + i * (colWidth + COLUMN_GAP),
-      right: marginX + i * (colWidth + COLUMN_GAP) + colWidth,
+      left: marginX + i * (colWidth + cfg.colGap),
+      right: marginX + i * (colWidth + cfg.colGap) + colWidth,
     })
   }
 
-  // Prepare the body text (skip first char since it's the drop cap)
+  // Headline
+  const ctx = document.createElement('canvas').getContext('2d')!
+  ctx.font = cfg.headline
+  const headlineWidth = ctx.measureText(HEADLINE_TEXT).width
+  const headlineX = (w - headlineWidth) / 2
+  const headlineY = h * cfg.headlineYRatio
+
+  // Drop cap
+  const firstChar = BODY_TEXT[0]
+  ctx.font = cfg.dropCap
+  const dropCapW = ctx.measureText(firstChar).width
+  const dropCapSize = cfg.bodyLineHeight * 3
+  const dropCap = {
+    char: firstChar,
+    x: marginX - 2,
+    y: bodyTop,
+    font: cfg.dropCap,
+  }
+  const dropCapRight = marginX + dropCapW + 8
+
+  // Prepare body text (skip first char for drop cap)
   const bodyTextWithoutDropCap = BODY_TEXT.slice(1)
-  const prepared = prepareWithSegments(bodyTextWithoutDropCap, BODY_FONT)
+  const prepared = prepareWithSegments(bodyTextWithoutDropCap, cfg.body)
 
   const allLines: InkLine[] = []
   let y = bodyTop
-
-  // Track which columns have been started
-  const colCursor: LayoutCursor[] = []
-  for (let i = 0; i < colCount; i++) {
-    colCursor.push({ segmentIndex: 0, graphemeIndex: 0 })
-  }
-
-  // Simple layout: fill column 0, then column 1
-  // For now, use a single shared cursor flowing across columns
   const sharedCursor: LayoutCursor = { segmentIndex: 0, graphemeIndex: 0 }
   let currentCol = 0
 
   while (y < bodyBottom) {
     const col = columns[currentCol]
-    const effectiveWidth = col.right - col.left
 
     // Skip drop cap area in first column
-    if (currentCol === 0 && y < bodyTop + DROP_CAP_SIZE) {
-      // Route around drop cap: check if this line band intersects drop cap
-      const blockedRight = dropCapRight
-      // If the line band intersects the drop cap rect, skip it
-      if (y >= bodyTop && y < bodyTop + DROP_CAP_SIZE) {
-        // Use only the right portion of the column
-        const availW = col.right - blockedRight
-        if (availW > 40) {
-          const line = layoutNextLine(prepared, sharedCursor, availW)
-          if (line !== null) {
-            allLines.push({
-              text: line.text,
-              x: blockedRight,
-              y,
-              width: line.width,
-              colIndex: currentCol,
-            })
-          }
+    if (currentCol === 0 && y < bodyTop + dropCapSize) {
+      const availW = col.right - dropCapRight
+      if (availW > 40) {
+        const line = layoutNextLine(prepared, sharedCursor, availW)
+        if (line !== null) {
+          allLines.push({
+            text: line.text,
+            x: dropCapRight,
+            y,
+            width: line.width,
+            colIndex: currentCol,
+          })
         }
       }
-      y += BODY_LINE_HEIGHT
+      y += cfg.bodyLineHeight
       continue
     }
 
-    const line = layoutNextLine(prepared, sharedCursor, effectiveWidth)
+    const line = layoutNextLine(prepared, sharedCursor, col.right - col.left)
     if (line === null) break
 
-    // Check for paragraph break (line starts with space or is short after previous line)
     allLines.push({
       text: line.text,
       x: col.left,
@@ -172,17 +203,10 @@ export function createInkLayout(): InkLayout {
       colIndex: currentCol,
     })
 
-    // Detect paragraph breaks (double newline in source)
-    // Since pretext normalizes whitespace, we check for short lines followed by new column
-    if (line.text.length < 5 && currentCol < colCount - 1) {
-      // Could be a paragraph break — but we only switch column at bottom
-      // For simplicity, stay in same column
-    }
+    y += cfg.bodyLineHeight
 
-    y += BODY_LINE_HEIGHT
-
-    // If we've filled this column, move to next
-    if (currentCol < colCount - 1 && y >= bodyBottom - BODY_LINE_HEIGHT) {
+    // Move to next column when filled
+    if (currentCol < colCount - 1 && y >= bodyBottom - cfg.bodyLineHeight) {
       currentCol++
       y = bodyTop
     }
@@ -193,6 +217,7 @@ export function createInkLayout(): InkLayout {
     headlineX,
     headlineY,
     headlineWidth,
+    headlineFont: cfg.headline,
     body: {
       lines: allLines,
       totalHeight: y - bodyTop,
@@ -201,7 +226,9 @@ export function createInkLayout(): InkLayout {
     },
     dropCap,
     columns,
+    bodyFont: cfg.body,
+    bodyLineHeight: cfg.bodyLineHeight,
   }
 }
 
-export { BODY_FONT, BODY_LINE_HEIGHT, HEADLINE_FONT, HEADLINE_TEXT }
+export { HEADLINE_TEXT }
