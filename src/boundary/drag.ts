@@ -54,11 +54,13 @@ export function endDrag(drag: BoundaryDrag): void {
   drag.active = false
 }
 
-/** Apply spring physics to smoothly move boundary toward target */
-export function applyDragSpring(wave: Wave, drag: BoundaryDrag, dt: number): void {
+/** Apply spring physics to smoothly move boundary toward target.
+ *  Updates BOTH baseYFraction AND baseY (pixel value used by render/compute). */
+export function applyDragSpring(wave: Wave, drag: BoundaryDrag, screenHeight: number, dt: number): void {
   if (!drag.active) return
 
   const diff = drag.targetFraction - wave.baseYFraction
   wave.baseYFraction += diff * drag.springK * dt
   wave.baseYFraction = Math.max(0.1, Math.min(0.9, wave.baseYFraction))
+  wave.baseY = wave.baseYFraction * screenHeight
 }

@@ -3,7 +3,7 @@
 import type { Wave } from './wave'
 import type { Ripple } from './ripple'
 import type { RGB } from '../shared/colors'
-import { rgbToString, createLinearGradient } from '../shared/colors'
+import { rgbToString } from '../shared/colors'
 import { rippleDisplacement } from './ripple'
 
 const HORIZONTAL_RESOLUTION = 300 // points along the boundary line

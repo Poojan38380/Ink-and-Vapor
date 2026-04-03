@@ -30,6 +30,11 @@ export function rgbLerp(a: RGB, b: RGB, t: number): RGB {
   }
 }
 
+/** Alias for rgbLerp (used in main.ts) */
+export function lerpRGB(a: RGB, b: RGB, t: number): RGB {
+  return rgbLerp(a, b, t)
+}
+
 /** Create a Canvas linear gradient between two RGB colors */
 export function createLinearGradient(
   ctx: CanvasRenderingContext2D,

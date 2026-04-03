@@ -8,7 +8,7 @@ import { waitForFonts } from './core/fonts'
 import { createInkLayout, BODY_FONT } from './ink/layout'
 import { drawHeadline, drawBodyLines, drawDropCap } from './ink/typesetter'
 import { midnightGalaxy, type Theme } from './themes/registry'
-import { rgbToString, rgbLerp } from './shared/colors'
+import { rgbToString, rgbLerp, lerpRGB } from './shared/colors'
 import { clamp } from './shared/utils'
 import {
   createWave,
@@ -17,6 +17,15 @@ import {
 import { createRipple, pruneRipples, rippleDisplacement } from './boundary/ripple'
 import { createBoundaryDrag, startDrag, updateDrag, endDrag, applyDragSpring } from './boundary/drag'
 import { drawBoundary } from './boundary/render'
+import { buildCharPalette, type VaporCharEntry } from './vapor/chars'
+import {
+  createVaporSystem,
+  updateVapor,
+  setVaporMouse,
+  setSpawnBoundary,
+  burstVapor,
+  type VaporSystem,
+} from './vapor/particles'
 
 const canvas = document.getElementById('canvas') as HTMLCanvasElement
 const loadingEl = document.getElementById('loading') as HTMLDivElement
@@ -40,10 +49,22 @@ async function main(): Promise<void> {
   updateWaveBaseY(wave, renderer.height)
   drag.targetFraction = wave.baseYFraction
 
+  // Vapor system
+  let charPalette: VaporCharEntry[] = []
+  let vapor: VaporSystem
+
   window.addEventListener('resize', () => {
     inkLayout = createInkLayout()
     updateWaveBaseY(wave, renderer.height)
   })
+
+  // Build character palette (requires fonts)
+  charPalette = buildCharPalette()
+  vapor = createVaporSystem(charPalette)
+  setSpawnBoundary(vapor, wave.baseY)
+  burstVapor(vapor, 800, renderer.width, renderer.height)
+
+  console.log(`[vapor] palette: ${charPalette.length} chars, particles: ${vapor.particles.length}`)
 
   // Input: click → ripple, drag → move boundary
   canvas.addEventListener('mousedown', (e: MouseEvent) => {
@@ -130,10 +151,48 @@ async function main(): Promise<void> {
     }
   })
 
-  // --- Boundary layer ---
+  // --- Vapor layer (above boundary) ---
+  addLayer(renderer, (ctx, time, dt) => {
+    // Update mouse position for vapor
+    setVaporMouse(
+      vapor,
+      input.mouse.x, input.mouse.y,
+      input.mouse.down,
+    )
+
+    // Update vapor boundary tracking
+    setSpawnBoundary(vapor, wave.baseY)
+
+    // Step the system
+    updateVapor(vapor, dt, time, renderer.width, renderer.height)
+
+    // Draw particles
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'alphabetic'
+
+    for (const p of vapor.particles) {
+      // Fade in at birth, fade out at death
+      let lifeAlpha = 1
+      if (p.life > 0.9) lifeAlpha = (1 - p.life) / 0.1
+      else if (p.life < 0.3) lifeAlpha = p.life / 0.3
+      lifeAlpha = Math.max(0, Math.min(1, lifeAlpha))
+
+      if (lifeAlpha < 0.05) continue
+
+      // Color based on brightness: low brightness = boundary glow (cool), high = ink accent (warm)
+      const b = p.brightness
+      const color = lerpRGB(theme.boundaryGlow, theme.inkAccent, b * 1.5)
+
+      ctx.globalAlpha = lifeAlpha * 0.65 * fadeInAlpha
+      ctx.fillStyle = `rgb(${color.r},${color.g},${color.b})`
+      ctx.font = p.entry.font
+      ctx.fillText(p.entry.char, p.x, p.y)
+    }
+    ctx.globalAlpha = 1
+  })
   addLayer(renderer, (ctx, time, dt) => {
     // Apply drag spring
-    applyDragSpring(wave, drag, dt)
+    applyDragSpring(wave, drag, renderer.height, dt)
 
     // Prune dead ripples
     pruneRipples(ripples, time)
@@ -148,23 +207,41 @@ async function main(): Promise<void> {
     const isOverBoundary = isCursorNearBoundary(
       input.mouse.x, input.mouse.y,
       wave, ripples, time,
-      45,
+      50,
     )
 
-    // Ring
-    ctx.globalAlpha = alpha * (isOverBoundary ? 0.7 : 0.4)
+    const ringRadius = isOverBoundary ? 24 : 16
+    const ringAlpha = isOverBoundary ? 0.85 : 0.5
+    const lineWidth = isOverBoundary ? 2.5 : 1.5
+
+    // Outer ring
+    ctx.globalAlpha = alpha * ringAlpha
     ctx.strokeStyle = rgbToString(theme.cursorColor)
-    ctx.lineWidth = isOverBoundary ? 2 : 1.5
+    ctx.lineWidth = lineWidth
     ctx.beginPath()
-    ctx.arc(input.mouse.x, input.mouse.y, isOverBoundary ? 22 : 18, 0, Math.PI * 2)
+    ctx.arc(input.mouse.x, input.mouse.y, ringRadius, 0, Math.PI * 2)
     ctx.stroke()
 
     // Inner dot
-    ctx.globalAlpha = alpha * 0.7
+    ctx.globalAlpha = alpha * 0.85
     ctx.fillStyle = rgbToString(theme.cursorColor)
     ctx.beginPath()
     ctx.arc(input.mouse.x, input.mouse.y, 3, 0, Math.PI * 2)
     ctx.fill()
+
+    // When over boundary, show grab handles (small arcs)
+    if (isOverBoundary) {
+      ctx.globalAlpha = alpha * 0.5
+      ctx.lineWidth = 1.5
+      // Top arc
+      ctx.beginPath()
+      ctx.arc(input.mouse.x, input.mouse.y, ringRadius + 4, -0.4, 0.4)
+      ctx.stroke()
+      // Bottom arc
+      ctx.beginPath()
+      ctx.arc(input.mouse.x, input.mouse.y, ringRadius + 4, Math.PI - 0.4, Math.PI + 0.4)
+      ctx.stroke()
+    }
 
     ctx.globalAlpha = 1
   })
@@ -175,7 +252,7 @@ async function main(): Promise<void> {
   // --- Main loop ---
   function frame(timestamp: number): void {
     tick(timer, timestamp)
-    fadeInAlpha = clamp(fadeInAlpha + 0.012, 0, 1)
+    fadeInAlpha = clamp(fadeInAlpha + 0.02, 0, 1)
 
     render(renderer, timer.elapsed, timer.dt)
     resetFrameInput(input)

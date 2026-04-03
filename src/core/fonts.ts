@@ -1,6 +1,7 @@
 // Ink & Vapor — Font loading synced with pretext
 
 const DEFAULT_FONTS = [
+  // Ink layer
   '400 17px "Playfair Display"',
   '700 17px "Playfair Display"',
   'italic 400 17px "Playfair Display"',
@@ -9,6 +10,13 @@ const DEFAULT_FONTS = [
   '400 17px Georgia',
   'bold 72px "Playfair Display"',
   'italic 20px "Playfair Display"',
+  // Vapor layer — Georgia at the exact weights/sizes used for char palette
+  '300 15px Georgia',
+  '500 15px Georgia',
+  '800 15px Georgia',
+  'italic 300 15px Georgia',
+  'italic 500 15px Georgia',
+  'italic 800 15px Georgia',
 ]
 
 /** Wait for all fonts to be loaded */
