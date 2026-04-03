@@ -48,8 +48,8 @@ export function createVaporSystem(palette: VaporCharEntry[]): VaporSystem {
       timeSpeed: 0.08,
       zOffset: 0,
     },
-    maxParticles: 5000,
-    spawnRate: 600,
+    maxParticles: 1500,
+    spawnRate: 0, // No ambient particles — vapor comes from dissolving chars only
     spawnBaseY: 0,
     attractionStrength: 800,
     mouseX: 0,
@@ -72,7 +72,7 @@ function spawnParticle(
   const brightness = Math.max(0.05, 0.6 - distFromBoundary / h * 3)
 
   const entry = findBestChar(sys.palette, brightness, SPACE_WIDTH)
-  const maxLife = 4 + Math.random() * 6
+  const maxLife = 1.5 + Math.random() * 2.5 // shorter life: 1.5–4s instead of 4–10s
 
   return {
     x,

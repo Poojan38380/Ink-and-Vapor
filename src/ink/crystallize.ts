@@ -25,6 +25,8 @@ export interface CharState {
   scale: number
   /** Whether this character is currently transitioning */
   transitioning: boolean
+  /** Optional per-character font override (e.g. for drop caps) */
+  font?: string
 }
 
 export interface TransitionSystem {
@@ -40,7 +42,7 @@ export interface TransitionSystem {
 }
 
 export function createTransitionSystem(
-  charPositions: { char: string; x: number; y: number }[],
+  charPositions: { char: string; x: number; y: number; font?: string }[],
   font: string,
 ): TransitionSystem {
   const chars: CharState[] = charPositions.map(p => ({
@@ -49,19 +51,20 @@ export function createTransitionSystem(
     homeY: p.y,
     x: p.x,
     y: p.y,
-    inkness: 1, // start fully ink
+    inkness: 1,
     vx: 0,
     vy: 0,
     scale: 1,
     transitioning: false,
+    font: p.font,
   }))
 
   return {
     chars,
     font,
-    dissolveSpeed: 1.8,
-    crystallizeSpeed: 2.5,
-    dissolveParticleCount: 4,
+    dissolveSpeed: 2.2,
+    crystallizeSpeed: 2.8,
+    dissolveParticleCount: 1,
   }
 }
 
@@ -159,8 +162,8 @@ export function spawnDissolveParticles(
         y: ch.y + (Math.random() - 0.5) * 10,
         vx: (Math.random() - 0.5) * 40,
         vy: -40 - Math.random() * 60,
-        life: 0.6 + Math.random() * 0.4,
-        maxLife: 3 + Math.random() * 4,
+        life: 0.5 + Math.random() * 0.5,
+        maxLife: 1.5 + Math.random() * 2,
         entry,
         brightness: 0.15 + Math.random() * 0.3,
         size: 0.7 + Math.random() * 0.5,
@@ -197,12 +200,13 @@ export function drawTransitionChars(
     ctx.globalAlpha = colorAlpha
     ctx.fillStyle = rgbToString(color, 1)
 
+    // Use per-character font if available (drop cap), otherwise default
     const fontSize = 17 * ch.scale
-    ctx.font = `${fontSize}px Georgia`
+    ctx.font = ch.font ?? `${fontSize}px Georgia`
 
     if (ch.inkness >= 0.99) {
-      // Solid ink — crisp
-      ctx.fillText(ch.char, ch.x, ch.y)
+      // Solid ink — crisp, at exact home position
+      ctx.fillText(ch.char, ch.homeX, ch.homeY)
     } else {
       // Transitioning — slight glow for ethereal effect
       ctx.shadowColor = rgbToString(vaporColor, 0.3)

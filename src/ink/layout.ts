@@ -70,14 +70,14 @@ const DROP_CAP_LINES = 3
 const DROP_CAP_SIZE = DROP_CAP_LINES * BODY_LINE_HEIGHT
 const COLUMN_GAP = 44
 const MARGIN_X_RATIO = 0.08
-const HEADLINE_Y_RATIO = 0.07
+const HEADLINE_Y_RATIO = 0.14
 
 export function createInkLayout(): InkLayout {
   const w = window.innerWidth
   const h = window.innerHeight
   const marginX = w * MARGIN_X_RATIO
   const contentWidth = w - marginX * 2
-  const bodyTop = HEADLINE_Y_RATIO * h + 90
+  const bodyTop = HEADLINE_Y_RATIO * h + 120
   const bodyBottom = h - 30
 
   // --- Headline ---

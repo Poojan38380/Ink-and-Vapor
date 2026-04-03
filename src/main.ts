@@ -6,7 +6,7 @@ import { createInput, resetFrameInput } from './core/input'
 import { createTimer, tick } from './core/timer'
 import { waitForFonts } from './core/fonts'
 import { createInkLayout, BODY_FONT } from './ink/layout'
-import { drawHeadline, drawDropCap } from './ink/typesetter'
+import { drawHeadline } from './ink/typesetter'
 import {
   createTransitionSystem,
   updateTransitions,
@@ -30,7 +30,6 @@ import {
   updateVapor,
   setVaporMouse,
   setSpawnBoundary,
-  burstVapor,
   repelFrom,
   type VaporSystem,
 } from './vapor/particles'
@@ -76,10 +75,21 @@ async function main(): Promise<void> {
   charPalette = buildCharPalette()
   vapor = createVaporSystem(charPalette)
   setSpawnBoundary(vapor, wave.baseY)
-  burstVapor(vapor, 800, renderer.width, renderer.height)
+  // No burst — vapor comes ONLY from dissolving characters
 
   // Build transition system from ink layout characters
-  const charPositions: { char: string; x: number; y: number }[] = []
+  const charPositions: { char: string; x: number; y: number; font?: string }[] = []
+
+  // Include the drop cap as a transitionable character
+  if (inkLayout.dropCap) {
+    charPositions.push({
+      char: inkLayout.dropCap.char,
+      x: inkLayout.dropCap.x,
+      y: inkLayout.dropCap.y + 60,
+      font: inkLayout.dropCap.font,
+    })
+  }
+
   for (const line of inkLayout.body.lines) {
     const ctx = document.createElement('canvas').getContext('2d')!
     ctx.font = BODY_FONT
@@ -182,19 +192,6 @@ async function main(): Promise<void> {
 
     // Draw transition-aware characters (replaces static body text)
     drawTransitionChars(ctx, transition, theme.inkColor, theme.boundaryGlow, alpha)
-
-    // Draw drop cap
-    if (inkLayout.dropCap) {
-      drawDropCap(
-        ctx,
-        inkLayout.dropCap.char,
-        inkLayout.dropCap.x,
-        inkLayout.dropCap.y,
-        inkLayout.dropCap.font,
-        theme.dropCapColor,
-        alpha,
-      )
-    }
 
     // Subtle headline glow
     if (alpha > 0.3) {
