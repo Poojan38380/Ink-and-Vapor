@@ -214,44 +214,102 @@ function initCircularWaveDemo(): void {
 // ===== DEMO 4: Vortex =====
 function initVortexDemo(): void {
   const { c, x, w, h } = mk('demo-vortex')
-  interface P { x: number; y: number; vx: number; vy: number; s: number }
-  const ps: P[] = Array.from({ length: 200 }, () => ({
+  c.style.cursor = 'crosshair'
+
+  interface P { x: number; y: number; vx: number; vy: number; s: number; age: number }
+  const ps: P[] = Array.from({ length: 300 }, () => ({
     x: Math.random() * w, y: Math.random() * h,
-    vx: (Math.random() - 0.5) * 20, vy: (Math.random() - 0.5) * 20, s: 1 + Math.random() * 2,
+    vx: (Math.random() - 0.5) * 60, vy: (Math.random() - 0.5) * 60,
+    s: 1 + Math.random() * 2.5, age: Math.random() * 10,
   }))
+
   let md = false, mx = w / 2, my = h / 2, lt = 0
-  c.onmousedown = (e: MouseEvent) => { md = true; const r = c.getBoundingClientRect(); mx = e.clientX - r.left; my = e.clientY - r.top }
-  c.onmousemove = (e: MouseEvent) => { const r = c.getBoundingClientRect(); mx = e.clientX - r.left; my = e.clientY - r.top }
-  window.onmouseup = () => { md = false }
+
+  // Use addEventListener to avoid overwriting global handlers
+  const onDown = (e: MouseEvent) => { md = true; const r = c.getBoundingClientRect(); mx = e.clientX - r.left; my = e.clientY - r.top }
+  const onMove = (e: MouseEvent) => { const r = c.getBoundingClientRect(); mx = e.clientX - r.left; my = e.clientY - r.top }
+  const onUp = () => { md = false }
+  c.addEventListener('mousedown', onDown)
+  c.addEventListener('mousemove', onMove)
+  window.addEventListener('mouseup', onUp)
 
   function draw(ts: number): void {
-    const t = ts / 1000, dt = Math.min((ts - lt) / 1000, 0.05); lt = ts
-    x.clearRect(0, 0, w, h)
+    const t = ts / 1000
+    const dt = Math.min(ts > lt ? (ts - lt) / 1000 : 0.016, 0.05)
+    lt = ts
+
+    // First frame: clear. Subsequent: trail overlay
+    if (dt < 0.002) { x.clearRect(0, 0, w, h) }
+    else {
+      x.globalAlpha = 0.15
+      x.fillStyle = '#0a0a0f'
+      x.fillRect(0, 0, w, h)
+    }
+
+    // Update particles
     for (const p of ps) {
+      p.age += dt
       if (md) {
-        const dx = p.x - mx, dy = p.y - my, d = Math.sqrt(dx * dx + dy * dy)
-        if (d > 2 && d < 120) {
-          const f = (1 - d / 120) / d
-          p.vx += (-dx * 600 + dy * 900) * f * dt
-          p.vy += (-dy * 600 - dx * 900) * f * dt
+        const dx = p.x - mx, dy = p.y - my
+        const d = Math.sqrt(dx * dx + dy * dy)
+        if (d > 3 && d < 150) {
+          const f = (1 - d / 150) / d
+          // Radial pull + tangential spin
+          p.vx += (-dx * 800 + dy * 1200) * f * dt
+          p.vy += (-dy * 800 - dx * 1200) * f * dt
         }
       }
-      p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.97; p.vy *= 0.97
-      if (p.x < 0) p.x += w; if (p.x > w) p.x -= w; if (p.y < 0) p.y += h; if (p.y > h) p.y -= h
+      // Ambient drift
+      p.vx += Math.sin(p.age * 0.5 + p.y * 0.02) * 5 * dt
+      p.vy += Math.cos(p.age * 0.4 + p.x * 0.02) * 5 * dt
+
+      p.x += p.vx * dt; p.y += p.vy * dt
+      p.vx *= 0.98; p.vy *= 0.98
+
+      // Wrap
+      if (p.x < -5) p.x += w + 10; if (p.x > w + 5) p.x -= w + 10
+      if (p.y < -5) p.y += h + 10; if (p.y > h + 5) p.y -= h + 10
     }
+
+    // Draw particles
     for (const p of ps) {
       const sp = Math.sqrt(p.vx * p.vx + p.vy * p.vy)
-      x.globalAlpha = Math.min(1, 0.3 + sp * 0.02)
-      x.fillStyle = sp > 100 ? '#a777e3' : '#6e8efb'
+      const alpha = md ? Math.min(1, 0.4 + sp * 0.005) : Math.min(0.7, 0.2 + sp * 0.003)
+      x.globalAlpha = alpha
+
+      // Color: purple when fast (vortex), blue when slow
+      if (sp > 150) {
+        x.fillStyle = '#a777e3'
+      } else if (sp > 60) {
+        const t2 = (sp - 60) / 90
+        x.fillStyle = `rgb(${Math.round(110 + t2 * 57)},${Math.round(142 - t2 * 2)},${Math.round(251 - t2 * 161)})`
+      } else {
+        x.fillStyle = '#6e8efb'
+      }
       x.beginPath(); x.arc(p.x, p.y, p.s, 0, Math.PI * 2); x.fill()
     }
+
+    // Vortex center indicator
     if (md) {
-      x.globalAlpha = 0.3; x.strokeStyle = '#c4a35a'; x.lineWidth = 1
-      x.beginPath(); x.arc(mx, my, 120, 0, Math.PI * 2); x.stroke()
+      x.globalAlpha = 0.4
+      x.strokeStyle = '#c4a35a'
+      x.lineWidth = 1.5
+      // Outer ring
+      x.beginPath(); x.arc(mx, my, 150, 0, Math.PI * 2); x.stroke()
+      // Inner ring
+      x.globalAlpha = 0.6
+      x.beginPath(); x.arc(mx, my, 8, 0, Math.PI * 2); x.stroke()
+      // Center dot
+      x.globalAlpha = 0.8; x.fillStyle = '#c4a35a'
+      x.beginPath(); x.arc(mx, my, 3, 0, Math.PI * 2); x.fill()
     }
-    if (t < 4) {
-      x.globalAlpha = (1 - t / 4) * 0.5; x.fillStyle = '#8a7e68'
-      x.font = '10px "Instrument Sans",sans-serif'; x.textAlign = 'center'
+
+    // Hint
+    if (t < 5) {
+      x.globalAlpha = (1 - t / 5) * 0.5
+      x.fillStyle = '#8a7e68'
+      x.font = '10px "Instrument Sans",sans-serif'
+      x.textAlign = 'center'
       x.fillText('hold mouse to create vortex', w / 2, h - 10)
     }
     x.globalAlpha = 1
