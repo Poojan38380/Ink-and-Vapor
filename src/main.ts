@@ -10,8 +10,11 @@ import { drawHeadline, drawBodyLines, drawDropCap } from './ink/typesetter'
 import { midnightGalaxy, type Theme } from './themes/registry'
 import { rgbToString, rgbLerp } from './shared/colors'
 import { clamp } from './shared/utils'
-import { createWave, updateWaveBaseY } from './boundary/wave'
-import { createRipple, pruneRipples } from './boundary/ripple'
+import {
+  createWave,
+  updateWaveBaseY
+} from './boundary/wave'
+import { createRipple, pruneRipples, rippleDisplacement } from './boundary/ripple'
 import { createBoundaryDrag, startDrag, updateDrag, endDrag, applyDragSpring } from './boundary/drag'
 import { drawBoundary } from './boundary/render'
 
@@ -43,23 +46,26 @@ async function main(): Promise<void> {
   })
 
   // Input: click → ripple, drag → move boundary
-  canvas.addEventListener('mousedown', () => {
+  canvas.addEventListener('mousedown', (e: MouseEvent) => {
+    const mx = e.clientX
+    const my = e.clientY
+
     // Check if we can start a drag
     const hitBoundary = startDrag(
       drag, wave,
-      input.mouse.x, input.mouse.y,
-      30, // tolerance in pixels
-      (x) => waveYAtX(wave, x, timer.elapsed),
+      mx, my,
+      40, // tolerance in pixels — generous grab zone
+      (x) => computeBoundaryY(wave, ripples, x, timer.elapsed),
     )
 
     if (!hitBoundary) {
       // Click away from boundary → spawn ripple
-      ripples.push(createRipple(input.mouse.x, timer.elapsed, 25))
+      ripples.push(createRipple(mx, timer.elapsed, 25))
     }
   })
 
-  canvas.addEventListener('mousemove', () => {
-    updateDrag(drag, input.mouse.y, renderer.height)
+  canvas.addEventListener('mousemove', (e: MouseEvent) => {
+    updateDrag(drag, e.clientY, renderer.height)
   })
 
   window.addEventListener('mouseup', () => {
@@ -142,7 +148,7 @@ async function main(): Promise<void> {
     const isOverBoundary = isCursorNearBoundary(
       input.mouse.x, input.mouse.y,
       wave, ripples, time,
-      30,
+      45,
     )
 
     // Ring
@@ -187,43 +193,36 @@ function isCursorNearBoundary(
   time: number,
   tolerance: number,
 ): boolean {
-  // Check a few sample points along X
-  const steps = 20
+  const steps = 24
   const w = window.innerWidth
   for (let i = 0; i <= steps; i++) {
     const x = (i / steps) * w
-    let y = waveYAtX(wave, x, time)
-    for (const r of ripples) {
-      const age = time - r.birthTime
-      if (age < 0) continue
-      const dist = Math.abs(x - r.originX)
-      const front = r.speed * age
-      const ww = r.spatialWidth
-      const envelope = Math.exp(-((dist - front) ** 2) / (2 * ww * ww))
-      const decay = Math.exp(-r.damping * age)
-      const osc = Math.sin((dist - front) * 0.05)
-      y += r.amplitude * envelope * decay * osc
-    }
+    const y = computeBoundaryY(wave, ripples, x, time)
     if (Math.abs(my - y) < tolerance) return true
   }
   return false
 }
 
-// Re-export from wave module
-function waveYAtX(
+/** Compute full boundary Y at a given X including wave + all ripples */
+function computeBoundaryY(
   wave: ReturnType<typeof createWave>,
+  ripples: ReturnType<typeof createRipple>[],
   x: number,
   time: number,
 ): number {
   const { amplitudes, frequencies, speeds, phases } = wave.config
-  const baseY = wave.baseY
-  return baseY +
+  let y = wave.baseY +
     amplitudes[0] * wave.amplitudeMultiplier *
     Math.sin(frequencies[0] * x + speeds[0] * time * wave.speedMultiplier + phases[0]) +
     amplitudes[1] * wave.amplitudeMultiplier *
     Math.sin(frequencies[1] * x + speeds[1] * time * wave.speedMultiplier + phases[1]) +
     amplitudes[2] * wave.amplitudeMultiplier *
     Math.sin(frequencies[2] * x + speeds[2] * time * wave.speedMultiplier + phases[2])
+
+  for (const r of ripples) {
+    y += rippleDisplacement(r, x, time)
+  }
+  return y
 }
 
 main().catch((err) => {

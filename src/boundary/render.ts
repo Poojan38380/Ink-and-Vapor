@@ -9,15 +9,10 @@ import { rippleDisplacement } from './ripple'
 const HORIZONTAL_RESOLUTION = 300 // points along the boundary line
 
 export interface BoundaryRenderConfig {
-  /** Line thickness in pixels */
   lineWidth: number
-  /** Glow radius in pixels */
   glowRadius: number
-  /** Glow alpha (0-1) */
   glowAlpha: number
-  /** Sparkle count per render */
   sparkleCount: number
-  /** Sparkle size range [min, max] */
   sparkleSizeMin: number
   sparkleSizeMax: number
 }
@@ -25,10 +20,10 @@ export interface BoundaryRenderConfig {
 export const defaultRenderConfig: BoundaryRenderConfig = {
   lineWidth: 1.5,
   glowRadius: 18,
-  glowAlpha: 0.15,
-  sparkleCount: 8,
-  sparkleSizeMin: 1,
-  sparkleSizeMax: 3,
+  glowAlpha: 0.12,
+  sparkleCount: 12,
+  sparkleSizeMin: 1.5,
+  sparkleSizeMax: 4,
 }
 
 /** Draw the boundary line with glow and sparkles */
@@ -42,44 +37,17 @@ export function drawBoundary(
   config?: Partial<BoundaryRenderConfig>,
 ): void {
   const c = { ...defaultRenderConfig, ...config }
-  const w = ctx.canvas.width / (window.devicePixelRatio || 1)
+  const w = window.innerWidth
 
   // Build points
-  const points: { x: number; y: number }[] = []
-  const dx = w / (HORIZONTAL_RESOLUTION - 1)
+  const points = buildWavePoints(wave, ripples, w, time)
 
-  for (let i = 0; i < HORIZONTAL_RESOLUTION; i++) {
-    const x = i * dx
-    let y = waveYAtXWithRipples(wave, ripples, x, time)
-    points.push({ x, y })
-  }
-
-  // Outer glow
+  // 1. Glow: draw a thick soft path following the wave shape
   ctx.globalAlpha = c.glowAlpha
-  const glowGradient = ctx.createRadialGradient(
-    w / 2, wave.baseY, 0,
-    w / 2, wave.baseY, w * 0.5,
-  )
-  glowGradient.addColorStop(0, rgbToString(glowColor, 0.4))
-  glowGradient.addColorStop(1, 'transparent')
-  ctx.fillStyle = glowGradient
-  ctx.fillRect(0, wave.baseY - c.glowRadius * 3, w, c.glowRadius * 6)
-  ctx.globalAlpha = 1
-
-  // Gradient stroke along the line
-  const strokeGrad = createLinearGradient(
-    ctx, 0, wave.baseY, w, wave.baseY,
-    color,
-    glowColor,
-    0.6,
-    0.4,
-  )
-
-  ctx.strokeStyle = strokeGrad
-  ctx.lineWidth = c.lineWidth
+  ctx.strokeStyle = rgbToString(glowColor, 0.6)
+  ctx.lineWidth = c.glowRadius * 2
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
-
   ctx.beginPath()
   ctx.moveTo(points[0].x, points[0].y)
   for (let i = 1; i < points.length; i++) {
@@ -87,8 +55,37 @@ export function drawBoundary(
   }
   ctx.stroke()
 
-  // Secondary thinner highlight
-  ctx.globalAlpha = 0.3
+  // Second, tighter glow pass
+  ctx.globalAlpha = c.glowAlpha * 0.6
+  ctx.lineWidth = c.glowRadius
+  ctx.beginPath()
+  ctx.moveTo(points[0].x, points[0].y)
+  for (let i = 1; i < points.length; i++) {
+    ctx.lineTo(points[i].x, points[i].y)
+  }
+  ctx.stroke()
+  ctx.globalAlpha = 1
+
+  // 2. Gradient stroke along the wave path
+  // Create a gradient from left to right (horizontal)
+  const strokeGrad = ctx.createLinearGradient(0, 0, w, 0)
+  strokeGrad.addColorStop(0, rgbToString(color, 0.7))
+  strokeGrad.addColorStop(0.5, rgbToString(glowColor, 0.5))
+  strokeGrad.addColorStop(1, rgbToString(color, 0.6))
+
+  ctx.strokeStyle = strokeGrad
+  ctx.lineWidth = c.lineWidth
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  ctx.beginPath()
+  ctx.moveTo(points[0].x, points[0].y)
+  for (let i = 1; i < points.length; i++) {
+    ctx.lineTo(points[i].x, points[i].y)
+  }
+  ctx.stroke()
+
+  // Secondary thin highlight
+  ctx.globalAlpha = 0.35
   ctx.strokeStyle = rgbToString(color, 0.5)
   ctx.lineWidth = 0.5
   ctx.beginPath()
@@ -99,29 +96,35 @@ export function drawBoundary(
   ctx.stroke()
   ctx.globalAlpha = 1
 
-  // Sparkles along the line
+  // 3. Sparkles along the wave
   drawSparkles(ctx, points, time, c, glowColor)
 }
 
-/** Get wave Y at X including all ripple displacements */
-function waveYAtXWithRipples(
+/** Build the wave point list including ripple displacements */
+function buildWavePoints(
   wave: Wave,
   ripples: Ripple[],
-  x: number,
+  width: number,
   time: number,
-): number {
-  let y = waveYAtX(wave, x, time)
-  for (const ripple of ripples) {
-    y += rippleDisplacement(ripple, x, time)
+): { x: number; y: number }[] {
+  const points: { x: number; y: number }[] = []
+  const dx = width / (HORIZONTAL_RESOLUTION - 1)
+
+  for (let i = 0; i < HORIZONTAL_RESOLUTION; i++) {
+    const x = i * dx
+    let y = computeWaveY(wave, x, time)
+    for (const r of ripples) {
+      y += rippleDisplacement(r, x, time)
+    }
+    points.push({ x, y })
   }
-  return y
+  return points
 }
 
-// Re-export from wave module (we need waveYAtX here)
-function waveYAtX(wave: Wave, x: number, time: number): number {
+/** Compute wave Y at a given X */
+function computeWaveY(wave: Wave, x: number, time: number): number {
   const { amplitudes, frequencies, speeds, phases } = wave.config
   const baseY = wave.baseY
-
   return baseY +
     amplitudes[0] * wave.amplitudeMultiplier *
     Math.sin(frequencies[0] * x + speeds[0] * time * wave.speedMultiplier + phases[0]) +
@@ -131,7 +134,7 @@ function waveYAtX(wave: Wave, x: number, time: number): number {
     Math.sin(frequencies[2] * x + speeds[2] * time * wave.speedMultiplier + phases[2])
 }
 
-/** Draw sparkle particles along the boundary */
+/** Draw sparkle particles along the wave */
 function drawSparkles(
   ctx: CanvasRenderingContext2D,
   points: { x: number; y: number }[],
@@ -139,40 +142,45 @@ function drawSparkles(
   config: BoundaryRenderConfig,
   color: RGB,
 ): void {
-  // Use seeded randomness based on time for consistent sparkle positions
   const count = config.sparkleCount
+
   for (let i = 0; i < count; i++) {
-    // Hash function for deterministic sparkle placement
+    // Deterministic hash for consistent sparkle positions
     const hash = Math.sin(i * 127.1 + 311.7) * 43758.5453
     const t = hash - Math.floor(hash)
 
-    // Pick a point along the line
+    // Pick a point along the wave
     const idx = Math.floor(t * (points.length - 1))
     const point = points[Math.max(0, Math.min(points.length - 1, idx))]
 
-    // Flicker
-    const flicker = Math.sin(time * (2 + i * 1.3) + i * 4.7) * 0.5 + 0.5
+    // Flicker with unique frequency per sparkle
+    const flicker = Math.sin(time * (2.5 + i * 1.7) + i * 4.7) * 0.5 + 0.5
     const size = config.sparkleSizeMin + (config.sparkleSizeMax - config.sparkleSizeMin) * flicker
-    const alpha = 0.3 + 0.5 * flicker
+    const alpha = 0.25 + 0.55 * flicker
+
+    // Only draw if sparkle is bright enough
+    if (alpha < 0.35) continue
 
     ctx.globalAlpha = alpha
     ctx.fillStyle = rgbToString(color)
 
-    // Draw as a tiny cross/star
+    // Draw as a small circle
     ctx.beginPath()
-    ctx.arc(point.x, point.y, size * 0.5, 0, Math.PI * 2)
+    ctx.arc(point.x, point.y, size * 0.6, 0, Math.PI * 2)
     ctx.fill()
 
-    // Tiny cross arms
-    ctx.globalAlpha = alpha * 0.4
-    ctx.lineWidth = 0.5
-    ctx.strokeStyle = rgbToString(color)
-    ctx.beginPath()
-    ctx.moveTo(point.x - size, point.y)
-    ctx.lineTo(point.x + size, point.y)
-    ctx.moveTo(point.x, point.y - size)
-    ctx.lineTo(point.x, point.y + size)
-    ctx.stroke()
+    // Cross arms (only for brighter sparkles)
+    if (flicker > 0.5) {
+      ctx.globalAlpha = alpha * 0.5
+      ctx.strokeStyle = rgbToString(color)
+      ctx.lineWidth = 0.8
+      ctx.beginPath()
+      ctx.moveTo(point.x - size * 1.2, point.y)
+      ctx.lineTo(point.x + size * 1.2, point.y)
+      ctx.moveTo(point.x, point.y - size * 1.2)
+      ctx.lineTo(point.x, point.y + size * 1.2)
+      ctx.stroke()
+    }
   }
   ctx.globalAlpha = 1
 }
