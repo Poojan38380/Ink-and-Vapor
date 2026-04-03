@@ -372,15 +372,31 @@
       background: linear-gradient(90deg, transparent, var(--text-faint), transparent);
     }
 
-    /* Canvas for live wave demo */
-    #wave-canvas {
-      display: block;
+    /* Interactive demo containers */
+    .demo-container {
       width: 100%;
-      max-width: 800px;
-      height: 200px;
-      margin: 40px auto;
-      border: 1px solid rgba(255, 255, 255, 0.04);
+      max-width: 600px;
+      height: 180px;
+      margin: 24px 0 16px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 2px;
       background: rgba(255, 255, 255, 0.01);
+      position: relative;
+      cursor: crosshair;
+    }
+
+    .demo-container canvas {
+      display: block;
+    }
+
+    .demo-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-faint);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-top: 8px;
+      margin-bottom: 4px;
     }
 
     /* Footer area */
@@ -498,6 +514,8 @@
     <p>Each wave component contributes a different scale of motion. The primary wave creates the broad hills and
       valleys. The secondary adds medium ripples. The tertiary provides fine texture — like wind on water. Together they
       produce a curve that <strong>never repeats exactly</strong>, mimicking natural fluid motion.</p>
+    <div class="demo-label">Interactive — adjust parameters</div>
+    <div class="demo-container" id="demo-boundary"></div>
   </section>
 
   <div class="divider"></div>
@@ -507,7 +525,8 @@
     <div class="section-number">02</div>
     <h2>Click <span class="accent">Ripples</span></h2>
     <p>When you click on the boundary, a ripple propagates outward from the click point. This is modeled as a
-      <strong>Gaussian wavefront</strong> — a pulse that travels while decaying in both space and time.</p>
+      <strong>Gaussian wavefront</strong> — a pulse that travels while decaying in both space and time.
+    </p>
 
     <div class="equation">
       <div class="formula">
@@ -535,6 +554,8 @@
       the wavefront, falling off on both sides), the <strong>exponential decay</strong> reduces amplitude over time, and
       the <strong>sine oscillation</strong> creates the alternating crest-and-trough pattern within the packet. Multiple
       ripples can coexist and <strong>superimpose</strong> linearly.</p>
+    <div class="demo-label">Interactive — click to spawn ripples</div>
+    <div class="demo-container" id="demo-ripples"></div>
   </section>
 
   <div class="divider"></div>
@@ -567,6 +588,8 @@
       amplitude with <span class="c-green">4</span> angular peaks, decaying as <span class="c-green">e^(−t·6)</span>
       over ~0.6 seconds. An <strong>expanding ripple ring</strong> simultaneously radiates outward from the ring,
       creating a visible shockwave.</p>
+    <div class="demo-label">Interactive — move mouse, click for pulse</div>
+    <div class="demo-container" id="demo-circular"></div>
   </section>
 
   <div class="divider"></div>
@@ -636,7 +659,8 @@
     <p>When a character dissolves (<span class="c-gold">ι</span> → 0), it drifts upward with velocity and spawns
       <strong>vapor particles</strong> at its position. When it crystallizes (<span class="c-gold">ι</span> → 1), it
       springs back to its home position with <strong>damped spring physics</strong>: <span class="c-blue">F =
-        −k·Δx</span>, damping <span class="c-blue">0.88</span> per frame.</p>
+        −k·Δx</span>, damping <span class="c-blue">0.88</span> per frame.
+    </p>
   </section>
 
   <div class="divider"></div>
@@ -671,7 +695,10 @@
     <p>The linear falloff <span class="c-purple">(1 − d/R)</span> ensures a smooth transition at the edge — particles at
       the boundary barely feel the pull, while those near the center are drawn in sharply. The tangential component
       <span class="c-green">θ̂</span> is perpendicular to the radial direction, creating the <strong>spiral
-        trajectory</strong> that makes the vortex visually compelling.</p>
+        trajectory</strong> that makes the vortex visually compelling.
+    </p>
+    <div class="demo-label">Interactive — hold mouse button</div>
+    <div class="demo-container" id="demo-vortex"></div>
   </section>
 
   <div class="divider"></div>
@@ -710,18 +737,8 @@
       characters (<span class="c-gold">@</span>, <span class="c-gold">#</span>, <span class="c-gold">%</span>). Wispy
       smoke selects light marks (<span class="c-gold">.</span>, <span class="c-gold">,</span>, <span
         class="c-gold">:</span>).</p>
-  </section>
-
-  <div class="divider"></div>
-
-  <!-- Live Wave Visualization -->
-  <section class="section" data-section>
-    <div class="section-number">08</div>
-    <h2>Live <span class="accent">Visualization</span></h2>
-    <p>The boundary wave, rendered in real time. Three components in different colors, plus their composite in white.
-    </p>
-
-    <canvas id="wave-canvas"></canvas>
+    <div class="demo-label">Live — animated density map</div>
+    <div class="demo-container" id="demo-palette"></div>
   </section>
 
   <!-- Footer -->
