@@ -86,6 +86,11 @@ export function stepField(field: NoiseField, dt: number): void {
   field.zOffset += dt * field.timeSpeed
 }
 
+/** Boost the time speed temporarily (for scroll-driven turbulence) */
+export function boostField(field: NoiseField, multiplier: number): void {
+  field.timeSpeed = 0.15 * multiplier
+}
+
 /** Get a 2D flow vector at (x, y, time) — returns [vx, vy] */
 export function flowAt(
   field: NoiseField,

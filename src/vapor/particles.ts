@@ -162,6 +162,27 @@ export function setVaporMouse(
   sys.mouseActive = active
 }
 
+/** Click repulsion: push all nearby particles away from a point */
+export function repelFrom(
+  sys: VaporSystem,
+  x: number,
+  y: number,
+  radius: number,
+  force: number,
+): void {
+  for (const p of sys.particles) {
+    const dx = p.x - x
+    const dy = p.y - y
+    const distSq = dx * dx + dy * dy
+    const dist = Math.sqrt(distSq)
+    if (dist > 2 && dist < radius) {
+      const strength = force * (1 - dist / radius) / dist
+      p.vx += dx * strength
+      p.vy += dy * strength
+    }
+  }
+}
+
 /** Set the spawn boundary Y */
 export function setSpawnBoundary(sys: VaporSystem, baseY: number): void {
   sys.spawnBaseY = baseY

@@ -16,6 +16,7 @@ import {
 import { midnightGalaxy, type Theme } from './themes/registry'
 import { rgbToString, rgbLerp, lerpRGB } from './shared/colors'
 import { clamp } from './shared/utils'
+import { boostField } from './shared/noise'
 import {
   createWave,
   updateWaveBaseY
@@ -30,6 +31,7 @@ import {
   setVaporMouse,
   setSpawnBoundary,
   burstVapor,
+  repelFrom,
   type VaporSystem,
 } from './vapor/particles'
 
@@ -61,6 +63,9 @@ async function main(): Promise<void> {
 
   // Transition system
   let transition: ReturnType<typeof createTransitionSystem>
+
+  // Scroll turbulence
+  let scrollTurbulence = 0 // decays over time
 
   window.addEventListener('resize', () => {
     inkLayout = createInkLayout()
@@ -120,6 +125,22 @@ async function main(): Promise<void> {
 
   window.addEventListener('mouseup', () => {
     endDrag(drag)
+  })
+
+  // Scroll → turbulence boost
+  window.addEventListener('wheel', (e: WheelEvent) => {
+    scrollTurbulence = Math.min(5, scrollTurbulence + Math.abs(e.deltaY) * 0.02)
+  }, { passive: true })
+
+  // Click away from boundary → repulsion burst in vapor
+  canvas.addEventListener('dblclick', (e: MouseEvent) => {
+    const mx = e.clientX
+    const my = e.clientY
+    const boundary = computeBoundaryY(wave, ripples, mx, timer.elapsed)
+    if (my < boundary + 100) {
+      // Double click above boundary → repel vapor
+      repelFrom(vapor, mx, my, 200, 3000)
+    }
   })
 
   // --- Background layer ---
@@ -191,6 +212,16 @@ async function main(): Promise<void> {
 
   // --- Vapor layer (above boundary) ---
   addLayer(renderer, (ctx, time, dt) => {
+    // Decay scroll turbulence
+    scrollTurbulence = Math.max(0, scrollTurbulence - dt * 0.8)
+
+    // Apply turbulence boost to noise field
+    if (scrollTurbulence > 0.1) {
+      boostField(vapor.noise, 1 + scrollTurbulence)
+    } else {
+      boostField(vapor.noise, 1)
+    }
+
     // Update mouse position for vapor
     setVaporMouse(
       vapor,
@@ -240,44 +271,96 @@ async function main(): Promise<void> {
   })
 
   // --- Custom cursor ---
-  addLayer(renderer, (ctx, time, _dt) => {
+  addLayer(renderer, (ctx, _time, _dt) => {
     const alpha = fadeInAlpha
-    const isOverBoundary = isCursorNearBoundary(
-      input.mouse.x, input.mouse.y,
-      wave, ripples, time,
-      50,
-    )
+    const mx = input.mouse.x
+    const my = input.mouse.y
 
-    const ringRadius = isOverBoundary ? 24 : 16
-    const ringAlpha = isOverBoundary ? 0.85 : 0.5
-    const lineWidth = isOverBoundary ? 2.5 : 1.5
+    const isOverBoundary = isCursorNearBoundary(mx, my, wave, ripples, timer.elapsed, 50)
+    const isOverVapor = my < wave.baseY - 40
+    const isDragging = drag.active
+
+    let ringRadius: number
+    let ringAlpha: number
+    let lineWidth: number
+
+    if (isDragging) {
+      // Dragging boundary — wide ring with vertical arrows
+      ringRadius = 28
+      ringAlpha = 0.9
+      lineWidth = 3
+    } else if (isOverBoundary) {
+      // Near boundary — medium ring, ready to grab
+      ringRadius = 24
+      ringAlpha = 0.85
+      lineWidth = 2.5
+    } else if (isOverVapor) {
+      // Over vapor — larger ring with inner crosshair
+      ringRadius = 20
+      ringAlpha = 0.6
+      lineWidth = 1.5
+    } else {
+      // Default — small, subtle
+      ringRadius = 14
+      ringAlpha = 0.45
+      lineWidth = 1.2
+    }
 
     // Outer ring
     ctx.globalAlpha = alpha * ringAlpha
     ctx.strokeStyle = rgbToString(theme.cursorColor)
     ctx.lineWidth = lineWidth
     ctx.beginPath()
-    ctx.arc(input.mouse.x, input.mouse.y, ringRadius, 0, Math.PI * 2)
+    ctx.arc(mx, my, ringRadius, 0, Math.PI * 2)
     ctx.stroke()
 
     // Inner dot
     ctx.globalAlpha = alpha * 0.85
     ctx.fillStyle = rgbToString(theme.cursorColor)
     ctx.beginPath()
-    ctx.arc(input.mouse.x, input.mouse.y, 3, 0, Math.PI * 2)
+    ctx.arc(mx, my, 2.5, 0, Math.PI * 2)
     ctx.fill()
 
-    // When over boundary, show grab handles (small arcs)
-    if (isOverBoundary) {
+    // Context-specific extras
+    if (isDragging) {
+      // Vertical arrows indicating drag direction
+      ctx.globalAlpha = alpha * 0.6
+      ctx.lineWidth = 2
+      const arrowSize = 6
+      // Up arrow
+      ctx.beginPath()
+      ctx.moveTo(mx, my - ringRadius - 8)
+      ctx.lineTo(mx - arrowSize, my - ringRadius - 8 + arrowSize)
+      ctx.moveTo(mx, my - ringRadius - 8)
+      ctx.lineTo(mx + arrowSize, my - ringRadius - 8 + arrowSize)
+      ctx.stroke()
+      // Down arrow
+      ctx.beginPath()
+      ctx.moveTo(mx, my + ringRadius + 8)
+      ctx.lineTo(mx - arrowSize, my + ringRadius + 8 - arrowSize)
+      ctx.moveTo(mx, my + ringRadius + 8)
+      ctx.lineTo(mx + arrowSize, my + ringRadius + 8 - arrowSize)
+      ctx.stroke()
+    } else if (isOverBoundary) {
+      // Grab handle arcs at top and bottom
       ctx.globalAlpha = alpha * 0.5
       ctx.lineWidth = 1.5
-      // Top arc
       ctx.beginPath()
-      ctx.arc(input.mouse.x, input.mouse.y, ringRadius + 4, -0.4, 0.4)
+      ctx.arc(mx, my, ringRadius + 4, -0.4, 0.4)
       ctx.stroke()
-      // Bottom arc
       ctx.beginPath()
-      ctx.arc(input.mouse.x, input.mouse.y, ringRadius + 4, Math.PI - 0.4, Math.PI + 0.4)
+      ctx.arc(mx, my, ringRadius + 4, Math.PI - 0.4, Math.PI + 0.4)
+      ctx.stroke()
+    } else if (isOverVapor) {
+      // Small crosshair
+      ctx.globalAlpha = alpha * 0.3
+      ctx.lineWidth = 0.8
+      const ch = 5
+      ctx.beginPath()
+      ctx.moveTo(mx - ch, my)
+      ctx.lineTo(mx + ch, my)
+      ctx.moveTo(mx, my - ch)
+      ctx.lineTo(mx, my + ch)
       ctx.stroke()
     }
 
