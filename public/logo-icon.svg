@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="45%" r="60%">
+      <stop offset="0%" stop-color="#d4e8f7"/>
+      <stop offset="100%" stop-color="#a8cce0"/>
+    </radialGradient>
+    <linearGradient id="inkGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="50%" stop-color="#2d3561"/>
+      <stop offset="100%" stop-color="#6e8efb"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#1a1a2e" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="100" fill="url(#bg)"/>
+  <rect x="2" y="2" width="508" height="508" rx="98" fill="none" stroke="#ffffff33" stroke-width="2"/>
+
+  <!-- Main composite wave -->
+  <g filter="url(#shadow)">
+    <!-- Primary wave (large, slow) -->
+    <path d="M 80,256 Q 130,190 180,215 Q 230,240 280,210 Q 330,180 380,210 Q 410,228 440,220"
+          fill="none" stroke="url(#inkGrad)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- Secondary wave (medium, faster) -->
+    <path d="M 80,256 Q 115,225 150,240 Q 185,255 220,235 Q 255,215 290,235 Q 325,255 360,230 Q 390,210 420,225 Q 435,232 440,220"
+          fill="none" stroke="#6e8efb" stroke-width="4" stroke-linecap="round" opacity="0.45"/>
+
+    <!-- Tertiary wave (fine, fastest) -->
+    <path d="M 80,256 Q 105,240 130,250 Q 155,260 180,248 Q 205,236 230,250 Q 255,264 280,245 Q 305,226 330,245 Q 355,264 380,238 Q 405,212 430,228"
+          fill="none" stroke="#a777e3" stroke-width="2" stroke-linecap="round" opacity="0.3"/>
+
+    <!-- Dissolving particles at the right end -->
+    <g filter="url(#glow)" opacity="0.85">
+      <circle cx="440" cy="220" r="5" fill="#6e8efb" opacity="0.7"/>
+      <circle cx="456" cy="210" r="3.5" fill="#6e8efb" opacity="0.55"/>
+      <circle cx="450" cy="235" r="2.5" fill="#a777e3" opacity="0.45"/>
+      <circle cx="468" cy="228" r="4" fill="#6e8efb" opacity="0.4"/>
+      <circle cx="475" cy="208" r="2" fill="#a777e3" opacity="0.35"/>
+      <circle cx="460" cy="200" r="3" fill="#6e8efb" opacity="0.5"/>
+      <circle cx="482" cy="220" r="1.5" fill="#a777e3" opacity="0.3"/>
+      <circle cx="448" cy="198" r="2.5" fill="#6e8efb" opacity="0.6"/>
+      <circle cx="490" cy="232" r="1.2" fill="#a777e3" opacity="0.25"/>
+      <circle cx="435" cy="238" r="3" fill="#6e8efb" opacity="0.65"/>
+      <circle cx="495" cy="215" r="1" fill="#6e8efb" opacity="0.2"/>
+      <circle cx="445" cy="245" r="2" fill="#a777e3" opacity="0.4"/>
+    </g>
+
+    <!-- Vapor wisps -->
+    <path d="M 450,212 Q 458,202 466,208" fill="none" stroke="#a777e3" stroke-width="1.2" opacity="0.25" stroke-linecap="round"/>
+    <path d="M 468,235 Q 478,245 486,238" fill="none" stroke="#6e8efb" stroke-width="1" opacity="0.2" stroke-linecap="round"/>
+    <path d="M 460,200 Q 468,192 476,198" fill="none" stroke="#a777e3" stroke-width="1" opacity="0.2" stroke-linecap="round"/>
+    <path d="M 485,225 Q 492,232 500,228" fill="none" stroke="#6e8efb" stroke-width="0.8" opacity="0.15" stroke-linecap="round"/>
+
+    <!-- Solid ink dots at the left end -->
+    <circle cx="80" cy="256" r="7" fill="#1a1a2e" opacity="0.55"/>
+    <circle cx="90" cy="248" r="4.5" fill="#1a1a2e" opacity="0.4"/>
+    <circle cx="96" cy="262" r="3" fill="#2d3561" opacity="0.35"/>
+    <circle cx="72" cy="260" r="2" fill="#2d3561" opacity="0.25"/>
+  </g>
+</svg>

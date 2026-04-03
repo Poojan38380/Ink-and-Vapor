@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400"><metadata><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/"><rdf:Description><dc:creator>RealFaviconGenerator</dc:creator><dc:source>https://realfavicongenerator.net</dc:source></rdf:Description></rdf:RDF></metadata><defs>
+    <!-- Background gradient -->
+    <radialGradient id="bg" cx="50%" cy="45%" r="65%">
+      <stop offset="0%" stop-color="#d4e8f7"></stop>
+      <stop offset="100%" stop-color="#a8cce0"></stop>
+    </radialGradient>
+
+    <!-- Ink to vapor gradient -->
+    <linearGradient id="inkGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1a1a2e"></stop>
+      <stop offset="45%" stop-color="#2d3561"></stop>
+      <stop offset="100%" stop-color="#6e8efb"></stop>
+    </linearGradient>
+
+    <!-- Glow filter -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"></feGaussianBlur>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"></feComposite>
+    </filter>
+
+    <!-- Soft shadow -->
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#1a1a2e" flood-opacity="0.15"></feDropShadow>
+    </filter>
+  </defs><rect width="400" height="400" rx="80" fill="url(#bg)"></rect><rect x="2" y="2" width="396" height="396" rx="78" fill="none" stroke="#ffffff33" stroke-width="1.5"></rect><g filter="url(#shadow)">
+
+    <!-- Wave 1: Large amplitude, low frequency (the main body) -->
+    <path d="M 60,200 
+             Q 95,155 130,170 
+             Q 165,185 200,165 
+             Q 235,145 270,170 
+             Q 305,195 340,185" fill="none" stroke="url(#inkGrad)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"></path>
+
+    <!-- Wave 2: Medium amplitude, higher frequency -->
+    <path d="M 60,200 
+             Q 85,180 110,190 
+             Q 135,200 160,188 
+             Q 185,176 210,185 
+             Q 235,194 260,182 
+             Q 285,170 310,180 
+             Q 325,187 340,185" fill="none" stroke="#6e8efb" stroke-width="2.5" stroke-linecap="round" opacity="0.5"></path>
+
+    <!-- Dissolving particles at the wave's end (right side) -->
+    <g filter="url(#glow)" opacity="0.8">
+      <circle cx="340" cy="185" r="3" fill="#6e8efb" opacity="0.7"></circle>
+      <circle cx="352" cy="178" r="2" fill="#6e8efb" opacity="0.5"></circle>
+      <circle cx="348" cy="195" r="1.5" fill="#a777e3" opacity="0.4"></circle>
+      <circle cx="360" cy="188" r="2.5" fill="#6e8efb" opacity="0.35"></circle>
+      <circle cx="365" cy="175" r="1.2" fill="#a777e3" opacity="0.3"></circle>
+      <circle cx="355" cy="170" r="1.8" fill="#6e8efb" opacity="0.45"></circle>
+      <circle cx="370" cy="182" r="1" fill="#a777e3" opacity="0.25"></circle>
+      <circle cx="345" cy="172" r="1.5" fill="#6e8efb" opacity="0.55"></circle>
+      <circle cx="375" cy="190" r="0.8" fill="#a777e3" opacity="0.2"></circle>
+      <circle cx="338" cy="192" r="2" fill="#6e8efb" opacity="0.6"></circle>
+    </g>
+
+    <!-- Small vapor wisps near particles -->
+    <path d="M 345,178 Q 350,172 355,176" fill="none" stroke="#a777e3" stroke-width="0.8" opacity="0.3" stroke-linecap="round"></path>
+    <path d="M 360,192 Q 365,198 370,194" fill="none" stroke="#6e8efb" stroke-width="0.8" opacity="0.25" stroke-linecap="round"></path>
+    <path d="M 352,170 Q 358,165 362,168" fill="none" stroke="#a777e3" stroke-width="0.6" opacity="0.2" stroke-linecap="round"></path>
+
+    <!-- Solid ink dots at the wave's start (left side) - representing "ink" -->
+    <circle cx="60" cy="200" r="4" fill="#1a1a2e" opacity="0.6"></circle>
+    <circle cx="68" cy="196" r="2.5" fill="#1a1a2e" opacity="0.4"></circle>
+    <circle cx="72" cy="204" r="1.8" fill="#2d3561" opacity="0.35"></circle>
+  </g></svg>
