@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Mathematics — Ink &amp; Vapor</title>
+  <meta name="description"
+    content="The equations behind Ink &amp; Vapor's boundary waves, ripple propagation, and circular cursor waves." />
+  <link rel="canonical" href="https://ink-vapor.vercel.app/equations.html" />
+
+  <!-- Favicons -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png" />
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+
+  <!-- Fonts: Cormorant Garamond (display) + IBM Plex Mono (equations) + Instrument Sans (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Instrument+Sans:wght@300;400;500&family=IBM+Plex+Mono:wght@300;400&display=swap"
+    rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --bg-warm: #12111a;
+      --text: #d4c8a0;
+      --text-dim: #8a7e68;
+      --text-faint: #5a5040;
+      --gold: #c4a35a;
+      --gold-soft: #c4a35a44;
+      --blue: #6e8efb;
+      --blue-soft: #6e8efb33;
+      --purple: #a777e3;
+      --green: #4ecdc4;
+      --font-display: 'Cormorant Garamond', Georgia, serif;
+      --font-body: 'Instrument Sans', -apple-system, sans-serif;
+      --font-mono: 'IBM Plex Mono', monospace;
+    }
+
+    *,
+    *::before,
+    *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      scrollbar-width: thin;
+      scrollbar-color: var(--gold-soft) transparent;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-weight: 300;
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+
+    /* Film grain overlay */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0.025;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 128px 128px;
+    }
+
+    /* Sticky footer */
+    #sticky-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 36px;
+      background: rgba(10, 10, 18, 0.92);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 50;
+      font-family: var(--font-body);
+    }
+
+    #sticky-footer.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    #sticky-footer a {
+      color: #ffffff88;
+      text-decoration: none;
+      font-size: 11px;
+      letter-spacing: 0.02em;
+      transition: color 0.2s;
+    }
+
+    #sticky-footer a:hover {
+      color: #ffffffcc;
+    }
+
+    #sticky-footer .sep {
+      color: #ffffff33;
+      font-size: 11px;
+    }
+
+    /* Scroll progress bar */
+    #progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 1px;
+      background: linear-gradient(90deg, var(--gold), var(--blue), var(--purple));
+      z-index: 100;
+      width: 0%;
+      transition: width 0.1s linear;
+    }
+
+    /* Navigation */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      padding: 24px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 60;
+      background: linear-gradient(180deg, var(--bg) 60%, transparent);
+    }
+
+    nav .back {
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      transition: color 0.3s;
+    }
+
+    nav .back:hover {
+      color: var(--gold);
+    }
+
+    nav .label {
+      color: var(--text-faint);
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    /* Hero */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 120px 40px 80px;
+      position: relative;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 40%, var(--bg-warm) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-label {
+      font-family: var(--font-body);
+      font-size: 11px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      margin-bottom: 32px;
+      animation: fadeUp 1s ease 0.2s both;
+    }
+
+    .hero h1 {
+      font-family: var(--font-display);
+      font-weight: 300;
+      font-size: clamp(42px, 7vw, 80px);
+      line-height: 1.1;
+      color: var(--text);
+      animation: fadeUp 1s ease 0.4s both;
+    }
+
+    .hero h1 em {
+      font-style: italic;
+      color: var(--gold);
+    }
+
+    .hero-sub {
+      font-family: var(--font-display);
+      font-size: clamp(16px, 2.5vw, 22px);
+      font-weight: 300;
+      font-style: italic;
+      color: var(--text-dim);
+      margin-top: 24px;
+      max-width: 500px;
+      animation: fadeUp 1s ease 0.6s both;
+    }
+
+    .scroll-hint {
+      position: absolute;
+      bottom: 40px;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      color: var(--text-faint);
+      animation: fadeUp 1s ease 1s both, pulse 3s ease-in-out 2s infinite;
+    }
+
+    .scroll-hint::after {
+      content: '';
+      display: block;
+      margin: 8px auto 0;
+      width: 1px;
+      height: 30px;
+      background: linear-gradient(180deg, var(--text-faint), transparent);
+    }
+
+    /* Sections */
+    .section {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 100px 40px 80px;
+      opacity: 0;
+      transform: translateY(40px);
+      transition: opacity 0.8s ease, transform 0.8s ease;
+    }
+
+    .section.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .section-number {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-faint);
+      letter-spacing: 0.1em;
+      margin-bottom: 16px;
+    }
+
+    .section h2 {
+      font-family: var(--font-display);
+      font-weight: 300;
+      font-size: clamp(28px, 4vw, 44px);
+      color: var(--text);
+      margin-bottom: 24px;
+      line-height: 1.2;
+    }
+
+    .section h2 .accent {
+      color: var(--gold);
+    }
+
+    .section p {
+      font-size: 15px;
+      color: var(--text-dim);
+      margin-bottom: 16px;
+      max-width: 600px;
+    }
+
+    /* Equation blocks */
+    .equation {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 2px;
+      padding: 32px 40px;
+      margin: 32px 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .equation::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 3px;
+      height: 100%;
+      background: linear-gradient(180deg, var(--gold), transparent);
+    }
+
+    .equation .formula {
+      font-family: var(--font-mono);
+      font-weight: 300;
+      font-size: clamp(14px, 2vw, 18px);
+      color: var(--text);
+      line-height: 2;
+      overflow-x: auto;
+    }
+
+    .equation .desc {
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-style: italic;
+      color: var(--text-faint);
+      margin-top: 16px;
+    }
+
+    .equation .vars {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .equation .vars dt {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--gold);
+      margin-bottom: 4px;
+    }
+
+    .equation .vars dd {
+      font-family: var(--font-body);
+      font-size: 13px;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+      padding-left: 0;
+    }
+
+    /* Color coding */
+    .c-gold {
+      color: var(--gold);
+    }
+
+    .c-blue {
+      color: var(--blue);
+    }
+
+    .c-purple {
+      color: var(--purple);
+    }
+
+    .c-green {
+      color: var(--green);
+    }
+
+    /* Divider */
+    .divider {
+      max-width: 200px;
+      margin: 0 auto;
+      padding: 60px 0;
+      text-align: center;
+    }
+
+    .divider::after {
+      content: '';
+      display: block;
+      width: 60px;
+      height: 1px;
+      margin: 0 auto;
+      background: linear-gradient(90deg, transparent, var(--text-faint), transparent);
+    }
+
+    /* Canvas for live wave demo */
+    #wave-canvas {
+      display: block;
+      width: 100%;
+      max-width: 800px;
+      height: 200px;
+      margin: 40px auto;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      background: rgba(255, 255, 255, 0.01);
+    }
+
+    /* Footer area */
+    .page-footer {
+      text-align: center;
+      padding: 80px 40px 60px;
+      color: var(--text-faint);
+      font-size: 12px;
+      letter-spacing: 0.1em;
+    }
+
+    .page-footer a {
+      color: var(--gold);
+      text-decoration: none;
+    }
+
+    .page-footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* Animations */
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 0.4;
+      }
+
+      50% {
+        opacity: 0.8;
+      }
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      nav {
+        padding: 16px 20px;
+      }
+
+      .hero {
+        padding: 100px 24px 60px;
+      }
+
+      .section {
+        padding: 60px 24px 50px;
+      }
+
+      .equation {
+        padding: 24px 20px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="progress"></div>
+
+  <nav>
+    <a href="/wave-demo.html" class="back">← Wave Demo</a>
+    <span class="label">The Mathematics</span>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-label">Ink &amp; Vapor</div>
+    <h1>The <em>Equations</em></h1>
+    <p class="hero-sub">Every curve, every ripple, every dissolution — governed by mathematics that fits on a single
+      page.</p>
+    <div class="scroll-hint">scroll to explore</div>
+  </section>
+
+  <!-- Section 1: Boundary Wave -->
+  <section class="section" data-section>
+    <div class="section-number">01</div>
+    <h2>The Boundary <span class="accent">Wave</span></h2>
+    <p>The boundary line that divides ink from vapor is not a simple sine wave. It is a <strong>composite of three sine
+        waves</strong> at different frequencies, amplitudes, and speeds — creating an organic, ever-shifting curve that
+      feels alive.</p>
+
+    <div class="equation">
+      <div class="formula">
+        <span class="c-gold">y</span>(x, t) = <span class="c-gold">y₀</span>
+        + <span class="c-blue">A₁</span> · sin(<span class="c-blue">k₁</span>x + <span class="c-blue">ω₁</span>t + <span
+          class="c-blue">φ₁</span>)
+        + <span class="c-purple">A₂</span> · sin(<span class="c-purple">k₂</span>x + <span class="c-purple">ω₂</span>t +
+        <span class="c-purple">φ₂</span>)
+        + <span class="c-green">A₃</span> · sin(<span class="c-green">k₃</span>x + <span class="c-green">ω₃</span>t +
+        <span class="c-green">φ₃</span>)
+      </div>
+      <div class="desc">Three superimposed waves create the organic boundary shape</div>
+      <dl class="vars">
+        <dt>y₀</dt>
+        <dd>Base Y position (controlled by drag)</dd>
+        <dt class="c-blue">A₁ = 12, k₁ = 0.008, ω₁ = 0.6, φ₁ = 0</dt>
+        <dd class="c-blue">Primary wave — large, slow undulation</dd>
+        <dt class="c-purple">A₂ = 6, k₂ = 0.018, ω₂ = 1.2, φ₂ = π/2</dt>
+        <dd class="c-purple">Secondary wave — medium ripple</dd>
+        <dt class="c-green">A₃ = 3, k₃ = 0.035, ω₃ = 2.1, φ₃ = π/4</dt>
+        <dd class="c-green">Tertiary wave — fine detail</dd>
+      </dl>
+    </div>
+
+    <p>Each wave component contributes a different scale of motion. The primary wave creates the broad hills and
+      valleys. The secondary adds medium ripples. The tertiary provides fine texture — like wind on water. Together they
+      produce a curve that <strong>never repeats exactly</strong>, mimicking natural fluid motion.</p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- Section 2: Click Ripples -->
+  <section class="section" data-section>
+    <div class="section-number">02</div>
+    <h2>Click <span class="accent">Ripples</span></h2>
+    <p>When you click on the boundary, a ripple propagates outward from the click point. This is modeled as a
+      <strong>Gaussian wavefront</strong> — a pulse that travels while decaying in both space and time.</p>
+
+    <div class="equation">
+      <div class="formula">
+        <span class="c-gold">R</span>(x, t) = <span class="c-blue">A</span> · exp<span class="c-purple">(</span>−<span
+          class="c-purple">((|x − x₀| − vt)² / 2σ²)</span><span class="c-purple">)</span> · exp<span
+          class="c-purple">(</span>−<span class="c-purple">γt</span><span class="c-purple">)</span> · sin<span
+          class="c-green">(</span><span class="c-green">β(|x − x₀| − vt)</span><span class="c-green">)</span>
+      </div>
+      <div class="desc">Gaussian wavefront with temporal and spatial decay</div>
+      <dl class="vars">
+        <dt class="c-blue">A = 25</dt>
+        <dd class="c-blue">Initial amplitude (pixels of displacement)</dd>
+        <dt class="c-blue">v = 400</dt>
+        <dd class="c-blue">Propagation speed (px/s)</dd>
+        <dt class="c-purple">σ = 80</dt>
+        <dd class="c-purple">Spatial width of the wave packet</dd>
+        <dt class="c-purple">γ = 1.8</dt>
+        <dd class="c-purple">Temporal damping rate (per second)</dd>
+        <dt class="c-green">β = 0.05</dt>
+        <dd class="c-green">Oscillation frequency within the packet</dd>
+      </dl>
+    </div>
+
+    <p>The three factors multiply together: the <strong>Gaussian envelope</strong> shapes the packet in space (peaked at
+      the wavefront, falling off on both sides), the <strong>exponential decay</strong> reduces amplitude over time, and
+      the <strong>sine oscillation</strong> creates the alternating crest-and-trough pattern within the packet. Multiple
+      ripples can coexist and <strong>superimpose</strong> linearly.</p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- Section 3: Circular Wave (Cursor) -->
+  <section class="section" data-section>
+    <div class="section-number">03</div>
+    <h2>Circular <span class="accent">Wave</span></h2>
+    <p>The cursor ring uses the same superposition principle as the boundary, but <strong>wrapped around a
+        circle</strong>. Instead of displacement along Y, the wave displaces the radius at each angle.</p>
+
+    <div class="equation">
+      <div class="formula">
+        <span class="c-gold">r</span>(θ, t) = <span class="c-gold">r₀</span>
+        + <span class="c-blue">a₁</span> · sin(<span class="c-blue">n₁</span>θ + <span class="c-blue">ω₁</span>t)
+        + <span class="c-blue">a₂</span> · cos(<span class="c-blue">n₂</span>θ − <span class="c-blue">ω₂</span>t)
+      </div>
+      <div class="desc">Angular wave displacement around a circular base</div>
+      <dl class="vars">
+        <dt class="c-gold">r₀</dt>
+        <dd>Base radius (responsive: 14–22px)</dd>
+        <dt class="c-blue">a₁ = 2.5, n₁ = 7, ω₁ = 2.0</dt>
+        <dd>Primary angular wave — 7 peaks rotating clockwise</dd>
+        <dt class="c-blue">a₂ = 1.25, n₂ = 10.5, ω₂ = 1.4</dt>
+        <dd>Secondary wave — counter-rotating interference</dd>
+      </dl>
+    </div>
+
+    <p>On click, an additional <strong>pulse term</strong> is added: a burst of <span class="c-green">8px</span>
+      amplitude with <span class="c-green">4</span> angular peaks, decaying as <span class="c-green">e^(−t·6)</span>
+      over ~0.6 seconds. An <strong>expanding ripple ring</strong> simultaneously radiates outward from the ring,
+      creating a visible shockwave.</p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- Section 4: Flow Field -->
+  <section class="section" data-section>
+    <div class="section-number">04</div>
+    <h2>Noise <span class="accent">Flow Field</span></h2>
+    <p>The vapor particles are driven by a <strong>multi-octave fractal Brownian motion</strong> — layered value noise
+      at decreasing scales, creating organic swirling patterns.</p>
+
+    <div class="equation">
+      <div class="formula">
+        <span class="c-gold">F</span>(x, y, t) = <span class="c-blue">∑</span> <span class="c-purple">gⁱ</span> · <span
+          class="c-green">N</span>(<span class="c-blue">x·lⁱ</span>/s, <span class="c-blue">y·lⁱ</span>/s + <span
+          class="c-blue">z(t)</span>)
+      </div>
+      <div class="desc">Fractal Brownian motion with time-evolving z-offset</div>
+      <dl class="vars">
+        <dt class="c-purple">g = 0.5</dt>
+        <dd class="c-purple">Gain — amplitude multiplier per octave</dd>
+        <dt class="c-blue">l = 2.2</dt>
+        <dd class="c-blue">Lacunarity — frequency multiplier per octave</dd>
+        <dt class="c-blue">s = 400</dt>
+        <dd class="c-blue">Base spatial scale (pixels)</dd>
+        <dt class="c-blue">z(t) = 0.15t</dt>
+        <dd class="c-blue">Time evolution (scroll can boost to 0.75t)</dd>
+        <dt class="c-green">N(x, y)</dt>
+        <dd class="c-green">2D value noise (hash + bilinear interpolation, 3 octaves)</dd>
+      </dl>
+    </div>
+
+    <p>The flow field produces two components: <strong>vₓ</strong> from noise at <span class="c-blue">(x/s, y/s + 5.2 +
+        z)</span> and <strong>vᵧ</strong> from noise at <span class="c-blue">(x/s + 5.2 + z, y/s + 0.5z)</span>. The
+      offset decorrelates the two components, creating <strong>rotational flow</strong> rather than simple translation.
+      Particles integrate these velocities with damping, creating the mesmerizing drift patterns.</p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- Section 5: Transitions -->
+  <section class="section" data-section>
+    <div class="section-number">05</div>
+    <h2>Ink ↔ Vapor <span class="accent">Transition</span></h2>
+    <p>Each character has an <strong>inkness</strong> value <span class="c-gold">ι ∈ [0, 1]</span> that determines
+      whether it's rendered as solid ink or dissolved vapor. The transition is governed by the character's position
+      relative to the boundary.</p>
+
+    <div class="equation">
+      <div class="formula">
+        <span class="c-gold">dι</span>/dt = <span class="c-blue">−k_d</span> &nbsp; when &nbsp; <span
+          class="c-purple">y_char</span> &lt; <span class="c-green">y_boundary</span>(x)<br />
+        <span class="c-gold">dι</span>/dt = <span class="c-blue">+k_c</span> &nbsp; when &nbsp; <span
+          class="c-purple">y_char</span> ≥ <span class="c-green">y_boundary</span>(x)
+      </div>
+      <div class="desc">First-order rate equation — dissolve or crystallize</div>
+      <dl class="vars">
+        <dt class="c-blue">k_d = 2.2</dt>
+        <dd class="c-blue">Dissolve rate (full dissolution in ~0.5s)</dd>
+        <dt class="c-blue">k_c = 2.8</dt>
+        <dd class="c-blue">Crystallize rate (full crystallization in ~0.4s)</dd>
+        <dt class="c-green">y_boundary(x)</dt>
+        <dd class="c-green">The 3-component composite wave from Section 01, including all active ripples</dd>
+      </dl>
+    </div>
+
+    <p>When a character dissolves (<span class="c-gold">ι</span> → 0), it drifts upward with velocity and spawns
+      <strong>vapor particles</strong> at its position. When it crystallizes (<span class="c-gold">ι</span> → 1), it
+      springs back to its home position with <strong>damped spring physics</strong>: <span class="c-blue">F =
+        −k·Δx</span>, damping <span class="c-blue">0.88</span> per frame.</p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- Section 6: Vortex -->
+  <section class="section" data-section>
+    <div class="section-number">06</div>
+    <h2>Hold <span class="accent">Vortex</span></h2>
+    <p>Holding the mouse button creates a <strong>gravitational well</strong> — particles experience both inward pull
+      and tangential spin, spiraling toward the cursor.</p>
+
+    <div class="equation">
+      <div class="formula">
+        <span class="c-gold">F⃗</span> = −<span class="c-blue">P</span> · (1 − d/R) · <span class="c-purple">r̂</span> +
+        <span class="c-blue">S</span> · (1 − d/R) · <span class="c-green">θ̂</span>
+      </div>
+      <div class="desc">Radial pull + tangential spin, both falling off linearly with distance</div>
+      <dl class="vars">
+        <dt class="c-blue">P = 800</dt>
+        <dd class="c-blue">Pull strength (inward force)</dd>
+        <dt class="c-blue">S = 1200</dt>
+        <dd class="c-blue">Spin strength (tangential force)</dd>
+        <dt class="c-purple">R = 250</dt>
+        <dd class="c-purple">Effect radius (pixels)</dd>
+        <dt class="c-purple">d = |p⃗ − c⃗|</dt>
+        <dd class="c-purple">Distance from particle to cursor</dd>
+        <dt class="c-green">r̂, θ̂</dt>
+        <dd class="c-green">Radial and tangential unit vectors from cursor</dd>
+      </dl>
+    </div>
+
+    <p>The linear falloff <span class="c-purple">(1 − d/R)</span> ensures a smooth transition at the edge — particles at
+      the boundary barely feel the pull, while those near the center are drawn in sharply. The tangential component
+      <span class="c-green">θ̂</span> is perpendicular to the radial direction, creating the <strong>spiral
+        trajectory</strong> that makes the vortex visually compelling.</p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- Section 7: Character Palette -->
+  <section class="section" data-section>
+    <div class="section-number">07</div>
+    <h2>Character <span class="accent">Palette</span></h2>
+    <p>Each vapor particle renders a <strong>typographic character</strong> selected by matching the local smoke density
+      to the character's measured brightness.</p>
+
+    <div class="equation">
+      <div class="formula">
+        <span class="c-gold">c*</span> = argmin<sub>c</sub> <span class="c-blue">[</span> <span
+          class="c-purple">α</span> · |b(c) − ρ| + <span class="c-green">β</span> · |w(c) − w₀| / w₀ <span
+          class="c-blue">]</span>
+      </div>
+      <div class="desc">Brightness-weighted character selection with width matching</div>
+      <dl class="vars">
+        <dt class="c-gold">c*</dt>
+        <dd>Selected character from palette (~180 entries)</dd>
+        <dt class="c-purple">b(c) ∈ [0, 1]</dt>
+        <dd class="c-purple">Measured brightness of character c (alpha scan of rendered glyph)</dd>
+        <dt class="c-green">w(c)</dt>
+        <dd class="c-green">Measured width of character c (via pretext canvas measurement)</dd>
+        <dt class="c-purple">ρ</dt>
+        <dd class="c-purple">Local smoke density (0 = clear, 1 = dense)</dd>
+        <dt class="c-purple">α = 2.5, β = 1.0</dt>
+        <dd class="c-purple">Brightness weighted 2.5× more than width</dd>
+      </dl>
+    </div>
+
+    <p>The palette spans <strong>70+ characters</strong> across <strong>3 weights</strong> (300, 500, 800) and <strong>2
+        styles</strong> (normal, italic) in Georgia — ~180 entries total. Binary search on brightness finds the nearest
+      match, then a <strong>±15 neighborhood search</strong> optimizes for width fit. Dense smoke selects dark, heavy
+      characters (<span class="c-gold">@</span>, <span class="c-gold">#</span>, <span class="c-gold">%</span>). Wispy
+      smoke selects light marks (<span class="c-gold">.</span>, <span class="c-gold">,</span>, <span
+        class="c-gold">:</span>).</p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- Live Wave Visualization -->
+  <section class="section" data-section>
+    <div class="section-number">08</div>
+    <h2>Live <span class="accent">Visualization</span></h2>
+    <p>The boundary wave, rendered in real time. Three components in different colors, plus their composite in white.
+    </p>
+
+    <canvas id="wave-canvas"></canvas>
+  </section>
+
+  <!-- Footer -->
+  <footer class="page-footer">
+    <p>Built with <a href="https://github.com/chenglou/pretext">@chenglou/pretext</a> · <a
+        href="https://github.com/Poojan38380/Ink-and-Vapor" target="_blank" rel="noopener">View on GitHub ↗</a></p>
+  </footer>
+
+  <!-- Sticky Footer -->
+  <div id="sticky-footer">
+    <a href="/wave-demo.html">← Wave Demo</a>
+    <span class="sep">·</span>
+    <a href="/">Home</a>
+    <span class="sep">·</span>
+    <a href="https://github.com/Poojan38380/Ink-and-Vapor" target="_blank" rel="noopener">GitHub ↗</a>
+  </div>
+
+  <script type="module" src="/src/equations/main.ts"></script>
+</body>
+
+</html>

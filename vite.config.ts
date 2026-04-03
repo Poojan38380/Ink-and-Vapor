@@ -7,6 +7,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         'wave-demo': resolve(__dirname, 'wave-demo.html'),
+        equations: resolve(__dirname, 'equations.html'),
       },
     },
   },
